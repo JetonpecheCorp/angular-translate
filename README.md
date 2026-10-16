@@ -1,6 +1,6 @@
 # @jetonpeche/angular-translate
 
-[Documentation en français](https://github.com/jetonpeche/angular-translate/blob/main/README.fr.md)
+[Documentation en français](https://github.com/JetonpecheCorp/angular-translate/blob/main/README.fr.md)
 
 A modern, lightweight, and **Signal-based** i18n translation library for Angular 22+ applications.   
 Built from the ground up for modern Angular architecture, it features seamless **SSR integration (TransferState)**, strict typing for your translation keys, and high-performance AST caching.
