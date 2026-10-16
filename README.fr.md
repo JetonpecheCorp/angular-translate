@@ -1,5 +1,7 @@
 # @jetonpeche/angular-translate
 
+*[Read this documentation in English](README.md)*
+
 Une bibliothèque de traduction i18n moderne, légère et **basée sur les Signals** pour les applications Angular 22+.   
 Conçue dès le départ pour l'architecture Angular moderne, elle offre une **intégration SSR transparente (TransferState)**, un typage strict pour vos clés de traduction, et une mise en cache AST ultra-performante.
 
