@@ -1,0 +1,35 @@
+{
+  "name": "@jetonpeche/angular-translate",
+  "version": "1.0.0",
+  "description": "A modern, lightweight, and Signal-based i18n translation library for Angular applications with SSR support.",
+  "keywords": [
+    "angular",
+    "i18n",
+    "translate",
+    "translation",
+    "signals",
+    "ssr",
+    "lazy-loading",
+    "internationalization",
+    "pipes"
+  ],
+  "author": "jetonpeche",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jetonpeche/angular-translate.git"
+  },
+  "bin": {
+    "angular-translate-cli": "bin/generate-types.js"
+  },
+  "peerDependencies": {
+    "@angular/common": ">=22.0.0",
+    "@angular/core": ">=22.0.0",
+    "@angular/platform-browser": ">=22.0.0",
+    "@angular/router": ">=22.0.0"
+  },
+  "dependencies": {
+    "tslib": "^2.3.0"
+  },
+  "sideEffects": false
+}
