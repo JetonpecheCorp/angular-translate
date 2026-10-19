@@ -117,4 +117,4 @@ if (!fs.existsSync(outputDir))
 
 fs.writeFileSync(outputPath, dtsContent);
 
-console.log(`✅ [angular-translate] Successfully generated typing in ${outputParam} ! (${allKeys.length} keys)`);
+console.log(`✅ [angular-translate] Successfully generated typing in ${outputParam} ! (${interfaceProps.length} keys)`);
