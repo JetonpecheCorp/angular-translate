@@ -14,12 +14,12 @@ for (let i = 0; i < args.length; i++)
     {
         inputParam = args[i + 1];
         i++; // On saute la valeur pour le prochain tour
-    } 
+    }
     else if (args[i] === '--output' || args[i] === '-o')
     {
         outputParam = args[i + 1];
         i++;
-    } 
+    }
     // si on tape juste : npx angular-translate-cli my-file.json
     else if (!inputParam && !args[i].startsWith('-'))
     {
@@ -58,10 +58,10 @@ try
     process.exit(1);
 }
 
-// 4. Extraction des clés
-function extractKeys(obj, prefix = '')
+// 4. Extraction des clés et valeurs
+function extractKeysAndValues(obj, prefix = '')
 {
-    let keys = [];
+    let items = [];
     for (const key in obj)
     {
         const pathStr = prefix ? `${prefix}.${key}` : key;
@@ -69,18 +69,29 @@ function extractKeys(obj, prefix = '')
 
         if (typeof value === 'object' && value !== null && !('other' in value))
         {
-            keys = keys.concat(extractKeys(value, pathStr));
-        } 
+            // C'est un objet imbriqué normal
+            items = items.concat(extractKeysAndValues(value, pathStr));
+        }
         else
         {
-            keys.push(pathStr);
+            // C'est une valeur finale (string) ou une règle de pluriel (objet avec 'other')
+            let displayValue = typeof value === 'object' ? JSON.stringify(value) : value;
+
+            // On nettoie la valeur pour éviter de casser le formatage JSDoc
+            displayValue = displayValue.replace(/\*\//g, '* /').replace(/\n/g, ' ');
+
+            items.push({ key: pathStr, value: displayValue });
         }
     }
-    return keys;
+
+    return items;
 }
 
 const allKeys = extractKeys(dictionnaire);
-const interfaceProps = allKeys.map(k => `        "${k}": string;`).join('\n');
+const interfaceProps = allItems.map(item =>
+{
+    return `        /** ${item.value} */\n        "${item.key}": string;`;
+}).join('\n');
 
 const dtsContent = `// Automatically generated file - DO NOT EDIT MANUALLY
 import '${packageName}';
