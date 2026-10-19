@@ -87,7 +87,7 @@ function extractKeysAndValues(obj, prefix = '')
     return items;
 }
 
-const allKeys = extractKeys(dictionnaire);
+const allKeys = extractKeysAndValues(dictionnaire);
 const interfaceProps = allItems.map(item =>
 {
     return `        /** ${item.value} */\n        "${item.key}": string;`;
