@@ -1,6 +1,6 @@
 import { inject, Pipe, PipeTransform } from "@angular/core";
 import { TranslationService } from "../services/TranslationService";
-import { TranslationKey } from "../tokens/auto-complete-key";
+import { ExtractParams, TranslationKey } from "../tokens/auto-complete-key";
 
 /**
  * Transforms a translation key into its corresponding translated string based on the active language.
@@ -23,7 +23,7 @@ export class TranslatePipe implements PipeTransform
 {
     private translateServ = inject(TranslationService);
 
-    transform(key: TranslationKey, params?: Record<string, any>)
+    transform<K extends TranslationKey>(key: K, params?: ExtractParams<K>): string
     {
         if(!key || key.trim().length == 0)
             return "";

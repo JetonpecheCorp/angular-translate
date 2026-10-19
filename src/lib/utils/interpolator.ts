@@ -1,6 +1,5 @@
 import { TranslationValue } from "../tokens/translation";
 
-// Notre cache qui garde en mémoire les phrases découpées
 const astCache = new Map<string, string[]>();
 
 export function interpolate(
@@ -35,10 +34,10 @@ export function interpolate(
     let tokens = astCache.get(texte);
     if (!tokens)
     {
-        // La regex split va diviser la phrase. 
-        // Ex: "Bonjour {name}" devient ["Bonjour ", "name", ""]
+        // La regex split va diviser la phrase et ignorer la déclaration de type.
+        // Ex: "Bonjour {name:string}" devient ["Bonjour ", "name", ""]
         // Les index pairs (0, 2, 4...) sont du texte, les index impairs (1, 3, 5...) sont des variables.
-        tokens = texte.split(/\{(\w+)\}/g);
+        tokens = texte.split(/\{([a-zA-Z0-9_]+)(?::[^\}]+)?\}/g);
         astCache.set(texte, tokens as string[]);
     }
 
@@ -49,7 +48,6 @@ export function interpolate(
         // Texte statique
         if (i % 2 == 0)
             result += (tokens as string[])[i]; 
-
         else
         {
             const key = (tokens as string[])[i]; // Nom de la variable
@@ -57,6 +55,7 @@ export function interpolate(
 
             if (val == undefined || val == null)
             {
+                // Si la variable est manquante, on affiche l'accolade sans le type
                 result += `{${key}}`;
             } 
             else if (val instanceof Date && !isNaN(val.getTime()))

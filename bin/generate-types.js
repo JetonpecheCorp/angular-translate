@@ -15,7 +15,7 @@ for (let i = 0; i < args.length; i++)
     {
         inputParam = args[i + 1];
         i++;
-    } 
+    }
     else if (args[i] === '--output' || args[i] === '-o')
     {
         outputParam = args[i + 1];
@@ -53,14 +53,14 @@ let dictionnaire;
 try
 {
     dictionnaire = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
-} 
+}
 catch (error)
 {
     console.error("❌ Error reading JSON:", error.message);
     process.exit(1);
 }
 
-// 4. Extraction des clés et valeurs
+// 4. Extraction des clés, des valeurs ET des paramètres typés
 function extractKeysAndValues(obj, prefix = '')
 {
     let items = [];
@@ -71,36 +71,83 @@ function extractKeysAndValues(obj, prefix = '')
 
         if (typeof value === 'object' && value !== null && !('other' in value))
         {
-            // C'est un objet imbriqué normal
             items = items.concat(extractKeysAndValues(value, pathStr));
-        } 
-        else
+        } else
         {
-            // C'est une valeur finale (string) ou une règle de pluriel (objet avec 'other')
             let displayValue = typeof value === 'object' ? JSON.stringify(value) : value;
-
-            // nettoie la valeur pour éviter de casser le formatage JSDoc
             displayValue = displayValue.replace(/\*\//g, '* /').replace(/\n/g, ' ');
-            items.push({ key: pathStr, value: displayValue });
+
+            let paramsMap = {};
+            const regex = /\{([a-zA-Z0-9_]+)(?::([a-zA-Z0-9_ |\[\]]+))?\}/g;
+            let match;
+
+            while ((match = regex.exec(displayValue)) !== null)
+            {
+                const paramName = match[1];
+                const rawType = match[2];
+
+                // Normalisation du type (gestion des pipes et de la casse)
+                const paramType = rawType ? rawType.split('|').map(t =>
+                {
+                    const trimmed = t.trim();
+                    const lower = trimmed.toLowerCase();
+
+                    switch (lower)
+                    {
+                        case 'string': return 'string';
+                        case 'number': return 'number';
+                        case 'boolean': return 'boolean';
+                        case 'date': return 'Date';
+                        case 'any': return 'any';
+                        default: return trimmed;
+                    }
+                }).join(' | ') : 'string';
+
+                paramsMap[paramName] = paramType;
+            }
+
+            items.push({ key: pathStr, value: displayValue, params: paramsMap });
         }
     }
+
     return items;
 }
 
 const allItems = extractKeysAndValues(dictionnaire);
 
-// Génération des propriétés avec la JSDoc
+// Génération de l'interface des CLÉS
 const interfaceProps = allItems.map(item =>
 {
     return `        /** ${item.value} */\n        "${item.key}": string;`;
 }).join('\n');
 
-const dtsContent = `// Automatically generated file - DO NOT EDIT MANUALLY
+// Génération de l'interface des PARAMÈTRES
+const paramsProps = allItems.map(item =>
+{
+    const paramNames = Object.keys(item.params);
+    if (paramNames.length === 0)
+    {
+        return `        "${item.key}": undefined;`;
+    }
+    else
+    {
+        // Crée l'objet de type : { name: string, amount: number }
+        const props = paramNames.map(p => `${p}: ${item.params[p]}`).join(', ');
+        return `        "${item.key}": { ${props} };`;
+    }
+}).join('\n');
+
+const dtsContent = `// Fichier généré automatiquement - NE PAS MODIFIER MANUELLEMENT
 import '${packageName}';
 
 declare module '${packageName}' {
     export interface TranslationSchema {
 ${interfaceProps}
+    }
+    
+    // Mapping strict des paramètres
+    export interface TranslationParams {
+${paramsProps}
     }
 }
 `;

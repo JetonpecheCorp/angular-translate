@@ -9,7 +9,7 @@ import { interpolate } from "../utils/interpolator";
 import { filter, firstValueFrom } from "rxjs";
 import { HttpClient } from "@angular/common/http";
 import { NavigationEnd, Router } from "@angular/router";
-import { TranslationKey } from "../tokens/auto-complete-key";
+import { ExtractParams, TranslationKey } from "../tokens/auto-complete-key";
 
 @Service()
 export class TraducteurCoreService
@@ -162,7 +162,7 @@ export class TraducteurCoreService
         }
     }
 
-    instant(key: TranslationKey, params?: Record<string, any>): string
+    instant<K extends TranslationKey>(key: K, params?: ExtractParams<K>): string
     {
         let texteBrut = resolveKey(this.traduction(), key);
 
@@ -191,7 +191,7 @@ export class TraducteurCoreService
         return texteTraduit ?? key;
     }
 
-    translateSignal(key: TranslationKey, params?: Record<string, any>): Signal<string>
+    translateSignal<K extends TranslationKey>(key: K, params?: ExtractParams<K>): Signal<string>
     {
         return computed(() => this.instant(key, params));
     }

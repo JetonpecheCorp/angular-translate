@@ -1,6 +1,6 @@
 import { inject, Service, Signal } from "@angular/core";
 import { TraducteurCoreService } from "./TraducteurCoreService";
-import { TranslationKey } from "../tokens/auto-complete-key";
+import { ExtractParams, TranslationKey } from "../tokens/auto-complete-key";
 
 @Service()
 export class TranslationService
@@ -49,7 +49,7 @@ export class TranslationService
      * @param params Optional parameters for string interpolation.
      * @returns The translated string, or the fallback representation if not found.
      */
-    instant(key: TranslationKey, params?: Record<string, any>): string
+    instant<K extends TranslationKey>(key: K, params?: ExtractParams<K>): string
     {
         return this.tradCoreServ.instant(key, params);
     }
@@ -61,7 +61,7 @@ export class TranslationService
      * @param params Optional parameters for string interpolation.
      * @returns A Signal emitting the translated string.
      */
-    translateSignal(key: TranslationKey, params?: Record<string, any>): Signal<string>
+    translateSignal<K extends TranslationKey>(key: K, params?: ExtractParams<K>): Signal<string>
     {
         return this.tradCoreServ.translateSignal(key, params);
     }
