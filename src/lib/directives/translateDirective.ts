@@ -1,7 +1,7 @@
 import { Directive, effect, ElementRef, inject, input, Renderer2, SecurityContext } from "@angular/core";
 import { DomSanitizer } from "@angular/platform-browser";
 import { TranslationKey } from "../tokens/auto-complete-key";
-import { TranslationService } from "../services/TranslationService";
+import { TraducteurCoreService } from "../services/TraducteurCoreService";
 
 @Directive({
     selector: "[translate]",
@@ -12,7 +12,7 @@ export class TranslateDirective
     translate = input<TranslationKey>();
     translateParams = input<Record<string, any> | undefined>();
 
-    private translationServ = inject(TranslationService);
+    private translationServ = inject(TraducteurCoreService);
     private elementRef = inject(ElementRef);
     private renderer2 = inject(Renderer2);
     private sanitizer = inject(DomSanitizer);
