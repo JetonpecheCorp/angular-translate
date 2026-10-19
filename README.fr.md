@@ -129,13 +129,24 @@ Ne vous trompez plus jamais en tapant une clé de traduction ! La bibliothèque 
 # Tout les cas possible
 npx angular-translate-cli --input public/i18n/en.json --output src/translation-types.d.ts  
 npx angular-translate-cli -i public/i18n/en.json -o src/translation-types.d.ts  
+
+# Sortie par defaut src/translation-types.d.ts
 npx angular-translate-cli public/i18n/en.json  
 
 # Creation des dossiers s'ils n'existent pas
-npx angular-translate-cli -i en.json -o src/dossier/existe/pas/types.d.ts
+npx angular-translate-cli -i en.json -o src/dossier/existe/pas/translation-types.d.ts
 ```
 
 *Remarque : Assurez-vous d'inclure le fichier généré `translation-types.d.ts` dans votre `tsconfig.app.json` ou de le lier via une directive triple-slash dans votre `main.ts`!*
+
+Utilisable dans le `package.json` en tant que `scripts`
+
+```json
+"scripts": 
+{
+  "i18n": "angular-translate-cli -i public/i18n/fr.json"
+}
+```
 
 ## Lazy-Loading (Traductions par Scope)
 Optimisez votre application en chargeant les traductions uniquement lorsqu'une route spécifique est consultée.   
