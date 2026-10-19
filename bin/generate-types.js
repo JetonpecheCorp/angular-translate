@@ -1,20 +1,21 @@
 #!/usr/bin/env node
-const fs = require('fs');
-const path = require('path');
+import fs from 'node:fs';
+import path from 'node:path';
+
 const packageName = '@jetonpeche/angular-translate';
 
 // 1. Analyse des arguments de la ligne de commande
 const args = process.argv.slice(2);
 let inputParam = '';
-let outputParam = 'src/translation-types.d.ts'; // Valeur par défaut
+let outputParam = 'src/translation-types.d.ts';
 
 for (let i = 0; i < args.length; i++)
 {
     if (args[i] === '--input' || args[i] === '-i')
     {
         inputParam = args[i + 1];
-        i++; // On saute la valeur pour le prochain tour
-    }
+        i++;
+    } 
     else if (args[i] === '--output' || args[i] === '-o')
     {
         outputParam = args[i + 1];
@@ -52,7 +53,8 @@ let dictionnaire;
 try
 {
     dictionnaire = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
-} catch (error)
+} 
+catch (error)
 {
     console.error("❌ Error reading JSON:", error.message);
     process.exit(1);
@@ -71,23 +73,23 @@ function extractKeysAndValues(obj, prefix = '')
         {
             // C'est un objet imbriqué normal
             items = items.concat(extractKeysAndValues(value, pathStr));
-        }
+        } 
         else
         {
             // C'est une valeur finale (string) ou une règle de pluriel (objet avec 'other')
             let displayValue = typeof value === 'object' ? JSON.stringify(value) : value;
 
-            // On nettoie la valeur pour éviter de casser le formatage JSDoc
+            // nettoie la valeur pour éviter de casser le formatage JSDoc
             displayValue = displayValue.replace(/\*\//g, '* /').replace(/\n/g, ' ');
-
             items.push({ key: pathStr, value: displayValue });
         }
     }
-
     return items;
 }
 
-const allKeys = extractKeysAndValues(dictionnaire);
+const allItems = extractKeysAndValues(dictionnaire);
+
+// Génération des propriétés avec la JSDoc
 const interfaceProps = allItems.map(item =>
 {
     return `        /** ${item.value} */\n        "${item.key}": string;`;

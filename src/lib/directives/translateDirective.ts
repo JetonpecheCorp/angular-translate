@@ -1,8 +1,7 @@
 import { Directive, effect, ElementRef, inject, input, Renderer2, SecurityContext } from "@angular/core";
-import { TranslationDictionary } from "../tokens/translation";
-import { TranslationService } from "../services/TraducteurCoreService";
 import { DomSanitizer } from "@angular/platform-browser";
 import { TranslationKey } from "../tokens/auto-complete-key";
+import { TranslationService } from "../services/TranslationService";
 
 @Directive({
     selector: "[translate]",
