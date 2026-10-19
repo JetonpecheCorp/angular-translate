@@ -1,5 +1,4 @@
 import { Provider, computed, signal } from '@angular/core';
-import { TraducteurCoreService } from '../services/TraducteurCoreService';
 import { TranslationService } from '../services/TranslationService';
 
 /**
