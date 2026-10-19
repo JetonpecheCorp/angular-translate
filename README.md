@@ -131,7 +131,13 @@ Never mistype a translation key again! The library includes a CLI tool to scan y
 2. Run the CLI tool:
 
 ```bash
-npx angular-translate-cli --input public/i18n/en.json --output src/translation-types.d.ts
+# all possible cases
+npx angular-translate-cli --input public/i18n/en.json --output src/translation-types.d.ts  
+npx angular-translate-cli -i public/i18n/en.json -o src/translation-types.d.ts  
+npx angular-translate-cli public/i18n/en.json  
+
+# Create directories path if not exists
+npx angular-translate-cli -i en.json -o src/directory/not/existe/types.d.ts
 ```
 
 *Note: Make sure to include the generated `translation-types.d.ts` file in your `tsconfig.app.json` or link it via a triple-slash directive in your `main.ts`!*
