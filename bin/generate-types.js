@@ -4,10 +4,11 @@ import path from 'node:path';
 
 const packageName = '@jetonpeche/angular-translate';
 
-// 1. Analyse des arguments de la ligne de commande
+// 1. Analyse des arguments
 const args = process.argv.slice(2);
 let inputParam = '';
 let outputParam = 'src/translation-types.d.ts';
+let watchMode = false;
 
 for (let i = 0; i < args.length; i++)
 {
@@ -15,14 +16,14 @@ for (let i = 0; i < args.length; i++)
     {
         inputParam = args[i + 1];
         i++;
-    }
-    else if (args[i] === '--output' || args[i] === '-o')
+    } else if (args[i] === '--output' || args[i] === '-o')
     {
         outputParam = args[i + 1];
         i++;
-    }
-    // si on tape juste : npx angular-translate-cli my-file.json
-    else if (!inputParam && !args[i].startsWith('-'))
+    } else if (args[i] === '--watch' || args[i] === '-w')
+    {
+        watchMode = true;
+    } else if (!inputParam && !args[i].startsWith('-'))
     {
         inputParam = args[i];
     }
@@ -30,37 +31,15 @@ for (let i = 0; i < args.length; i++)
 
 if (!inputParam)
 {
-    console.error("❌ Please specify the source file : npx angular-translate-cli --input src/public/i18n/en.json");
+    console.error("❌ Veuillez spécifier le fichier source de référence : npx angular-translate-cli -i src/assets/i18n/fr.json");
     process.exit(1);
 }
 
-// 2. Vérification du fichier d'entrée
 const jsonPath = path.resolve(process.cwd(), inputParam);
-if (!fs.existsSync(jsonPath))
-{
-    console.error(`❌ File not found: ${jsonPath}`);
-    process.exit(1);
-}
+const outputPath = path.resolve(process.cwd(), outputParam);
+const i18nDir = path.dirname(jsonPath);
 
-if (path.extname(jsonPath).toLowerCase() !== '.json')
-{
-    console.error("❌ Only .json files are supported for generating types.");
-    process.exit(1);
-}
-
-// 3. Lecture du JSON
-let dictionnaire;
-try
-{
-    dictionnaire = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
-}
-catch (error)
-{
-    console.error("❌ Error reading JSON:", error.message);
-    process.exit(1);
-}
-
-// 4. Extraction des clés, des valeurs ET des paramètres typés
+// Extraction complète (avec types) pour le fichier de référence
 function extractKeysAndValues(obj, prefix = '')
 {
     let items = [];
@@ -85,14 +64,10 @@ function extractKeysAndValues(obj, prefix = '')
             {
                 const paramName = match[1];
                 const rawType = match[2];
-
-                // Normalisation du type (gestion des pipes et de la casse)
                 const paramType = rawType ? rawType.split('|').map(t =>
                 {
                     const trimmed = t.trim();
-                    const lower = trimmed.toLowerCase();
-
-                    switch (lower)
+                    switch (trimmed.toLowerCase())
                     {
                         case 'string': return 'string';
                         case 'number': return 'number';
@@ -102,66 +77,131 @@ function extractKeysAndValues(obj, prefix = '')
                         default: return trimmed;
                     }
                 }).join(' | ') : 'string';
-
                 paramsMap[paramName] = paramType;
             }
-
             items.push({ key: pathStr, value: displayValue, params: paramsMap });
         }
     }
-
     return items;
 }
 
-const allItems = extractKeysAndValues(dictionnaire);
-
-// Génération de l'interface des CLÉS
-const interfaceProps = allItems.map(item =>
+// Extraction simple (uniquement les clés) pour les autres fichiers
+function extractKeysOnly(obj, prefix = '')
 {
-    return `        /** ${item.value} */\n        "${item.key}": string;`;
-}).join('\n');
-
-// Génération de l'interface des PARAMÈTRES
-const paramsProps = allItems.map(item =>
-{
-    const paramNames = Object.keys(item.params);
-    if (paramNames.length === 0)
+    let keys = [];
+    for (const key in obj)
     {
-        return `        "${item.key}": undefined;`;
+        const pathStr = prefix ? `${prefix}.${key}` : key;
+        const value = obj[key];
+        if (typeof value === 'object' && value !== null && !('other' in value))
+        {
+            keys = keys.concat(extractKeysOnly(value, pathStr));
+        } else
+        {
+            keys.push(pathStr);
+        }
     }
-    else
+    return keys;
+}
+
+// La fonction magique qui fait tout
+function generateAndCheck()
+{
+    console.clear();
+    const time = new Date().toLocaleTimeString();
+    console.log(`\n⏳ [${time}] Compilation et analyse i18n...`);
+
+    if (!fs.existsSync(jsonPath))
     {
-        // Crée l'objet de type : { name: string, amount: number }
+        console.error(`❌ Fichier de référence introuvable : ${jsonPath}`);
+        return;
+    }
+
+    // --- 1. GÉNÉRATION DES TYPES ---
+    let dictionnaire;
+    try
+    {
+        dictionnaire = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
+    } catch (error)
+    {
+        console.error("❌ Erreur de lecture du JSON de référence :", error.message);
+        return;
+    }
+
+    const allItems = extractKeysAndValues(dictionnaire);
+    const referenceKeys = allItems.map(i => i.key); // La liste absolue des clés
+
+    const interfaceProps = allItems.map(item => `        /** ${item.value} */\n        "${item.key}": string;`).join('\n');
+    const paramsProps = allItems.map(item =>
+    {
+        const paramNames = Object.keys(item.params);
+        if (paramNames.length === 0) return `        "${item.key}": undefined;`;
         const props = paramNames.map(p => `${p}: ${item.params[p]}`).join(', ');
         return `        "${item.key}": { ${props} };`;
-    }
-}).join('\n');
+    }).join('\n');
 
-const dtsContent = `// Fichier généré automatiquement - NE PAS MODIFIER MANUELLEMENT
-import '${packageName}';
+    const dtsContent = `// Fichier généré automatiquement - NE PAS MODIFIER MANUELLEMENT\nimport '${packageName}';\n\ndeclare module '${packageName}' {\n    export interface TranslationSchema {\n${interfaceProps}\n    }\n    export interface TranslationParams {\n${paramsProps}\n    }\n}\n`;
 
-declare module '${packageName}' {
-    export interface TranslationSchema {
-${interfaceProps}
+    const outputDir = path.dirname(outputPath);
+    if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+    fs.writeFileSync(outputPath, dtsContent);
+
+    console.log(`✅ Typage généré (${referenceKeys.length} clés) dans ${outputParam}`);
+
+    // --- 2. VÉRIFICATION DES AUTRES LANGUES ---
+    const otherFiles = fs.readdirSync(i18nDir).filter(f => f.endsWith('.json') && path.join(i18nDir, f) !== jsonPath);
+
+    if (otherFiles.length > 0)
+    {
+        console.log(`\n🔍 Synchronisation par rapport à "${path.basename(jsonPath)}" :`);
+
+        for (const file of otherFiles)
+        {
+            try
+            {
+                const content = JSON.parse(fs.readFileSync(path.join(i18nDir, file), 'utf-8'));
+                const fileKeys = extractKeysOnly(content);
+
+                const missing = referenceKeys.filter(k => !fileKeys.includes(k));
+                const extra = fileKeys.filter(k => !referenceKeys.includes(k));
+
+                if (missing.length === 0 && extra.length === 0)
+                {
+                    console.log(`  🟢 ${file} : 100% à jour.`);
+                } 
+                else
+                {
+                    console.log(`  🔴 ${file} :`);
+                    if (missing.length > 0) console.log(`     ❌ Manque ${missing.length} clé(s) (ex: ${missing.slice(0, 3).join(', ')}${missing.length > 3 ? '...' : ''})`);
+                    if (extra.length > 0) console.log(`     🗑️  Contient ${extra.length} clé(s) obsolète(s) (ex: ${extra.slice(0, 3).join(', ')}${extra.length > 3 ? '...' : ''})`);
+                }
+            } catch (e)
+            {
+                console.log(`  ⚠️  ${file} : Erreur de lecture JSON.`);
+            }
+        }
     }
-    
-    // Mapping strict des paramètres
-    export interface TranslationParams {
-${paramsProps}
-    }
+    console.log('--------------------------------------------------');
 }
-`;
 
-// 5. Écriture du fichier de sortie
-const outputPath = path.resolve(process.cwd(), outputParam);
+// 1er lancement initial
+generateAndCheck();
 
-// Création du dossier de destination s'il n'existe pas (ex: si on spécifie un dossier distant)
-const outputDir = path.dirname(outputPath);
-if (!fs.existsSync(outputDir))
+// Mode Watch (Écoute TOUT LE DOSSIER i18n)
+if (watchMode)
 {
-    fs.mkdirSync(outputDir, { recursive: true });
+    console.log(`👀 Mode Watch activé. En écoute sur le dossier : ${i18nDir}`);
+    let debounceTimer;
+
+    fs.watch(i18nDir, (eventType, filename) =>
+    {
+        if (filename && filename.endsWith('.json'))
+        {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() =>
+            {
+                generateAndCheck();
+            }, 150); // Léger délai pour la sauvegarde complète du fichier
+        }
+    });
 }
-
-fs.writeFileSync(outputPath, dtsContent);
-
-console.log(`✅ [angular-translate] Successfully generated typing in ${outputParam} ! (${interfaceProps.length} keys)`);

@@ -43,26 +43,29 @@ export class TranslationService
     }
 
     /**
-     * Synchronously translates a given key based on the currently active language.
+     * Translates a key synchronously and returns the localized string.
      * 
-     * @param key The translation key (e.g., 'HOME.TITLE').
-     * @param params Optional parameters for string interpolation.
-     * @returns The translated string, or the fallback representation if not found.
+     * @param key The translation key (e.g. 'HOME.TITLE').
+     * @param params An optional object containing variables for string interpolation.
+     * @param fallback An optional fallback translation key or raw string to use if the primary key is missing.
+     * @returns The translated string, or the key itself if no translation/fallback is found.
      */
-    instant<K extends TranslationKey>(key: K, params?: ExtractParams<K>): string
+    instant<K extends TranslationKey>(key: K, params?: ExtractParams<K>, fallback?: TranslationKey | string): string    
     {
-        return this.tradCoreServ.instant(key, params);
+        return this.tradCoreServ.instant(key, params, fallback);
     }
 
     /**
-     * Returns a reactive Signal that automatically updates whenever the active language changes.
+     * Translates a key and returns a reactive Angular Signal.
+     * The Signal will automatically update whenever the active language changes.
      * 
-     * @param key The translation key (e.g., 'HOME.TITLE').
-     * @param params Optional parameters for string interpolation.
-     * @returns A Signal emitting the translated string.
+     * @param key The translation key (e.g. 'HOME.TITLE').
+     * @param params An optional object containing variables for string interpolation.
+     * @param fallback An optional fallback translation key or raw string to use if the primary key is missing.
+     * @returns A computed Signal containing the translated string.
      */
-    translateSignal<K extends TranslationKey>(key: K, params?: ExtractParams<K>): Signal<string>
+    translateSignal<K extends TranslationKey>(key: K, params?: ExtractParams<K>, fallback?: TranslationKey | string): Signal<string>    
     {
-        return this.tradCoreServ.translateSignal(key, params);
+        return this.tradCoreServ.translateSignal(key, params, fallback);
     }
 }

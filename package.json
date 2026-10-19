@@ -20,7 +20,8 @@
     "url": "https://github.com/jetonpeche/angular-translate.git"
   },
   "bin": {
-    "angular-translate-cli": "bin/generate-types.js"
+    "angular-translate-cli": "bin/generate-types.js",
+    "angular-translate-check": "bin/translation-check.js"
   },
   "peerDependencies": {
     "@angular/common": ">=22.0.0",

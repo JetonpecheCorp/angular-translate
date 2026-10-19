@@ -1,17 +1,21 @@
 import { inject, Pipe, PipeTransform } from "@angular/core";
-import { TranslationService } from "../services/TranslationService";
 import { ExtractParams, TranslationKey } from "../tokens/auto-complete-key";
+import { TraducteurCoreService } from "../services/TraducteurCoreService";
 
 /**
- * Transforms a translation key into its corresponding translated string based on the active language.
- * This pipe is impure, meaning it automatically updates the view when the language changes.
+ * A standalone pipe for translating strings directly within Angular HTML templates.
+ * 
+ * It automatically reacts to language changes (pure: false) without requiring page reloads.
  * 
  * @example
  * <!-- Basic usage -->
  * <h1>{{ 'HOME.TITLE' | translate }}</h1>
  * 
- * <!-- Usage with interpolation parameters -->
+ * <!-- With interpolation parameters -->
  * <p>{{ 'HOME.WELCOME' | translate:{ name: 'Alice' } }}</p>
+ * 
+ * <!-- With a fallback key/string if the primary key is missing -->
+ * <p>{{ 'USER.PHONE' | translate: undefined : 'USER.PHONE_NOT_EXISTS' }}</p>
  */
 @Pipe({
     name: "translate",
@@ -21,13 +25,13 @@ import { ExtractParams, TranslationKey } from "../tokens/auto-complete-key";
 })
 export class TranslatePipe implements PipeTransform
 {
-    private translateServ = inject(TranslationService);
+    private translateServ = inject(TraducteurCoreService);
 
-    transform<K extends TranslationKey>(key: K, params?: ExtractParams<K>): string
+    transform<K extends TranslationKey>(key: K, params?: ExtractParams<K>, fallback?: TranslationKey | string): string 
     {
         if(!key || key.trim().length == 0)
             return "";
 
-        return this.translateServ.instant(key, params);
+        return this.translateServ.instant(key, params, fallback);
     }
 }

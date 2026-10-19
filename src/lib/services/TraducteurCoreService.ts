@@ -162,20 +162,44 @@ export class TraducteurCoreService
         }
     }
 
-    instant<K extends TranslationKey>(key: K, params?: ExtractParams<K>): string
+    instant<K extends TranslationKey>(key: K, params?: ExtractParams<K>, fallback?: TranslationKey | string): string
     {
-        let texteBrut = resolveKey(this.traduction(), key);
+        let texteBrut = resolveKey(this.traduction(), key as string);
 
-        // LOGIQUE DE FALLBACK CHAIN
+        // LOGIQUE DE FALLBACK CHAIN GLOBAL
         if (texteBrut === undefined)
         {
             const fallbacks = this.getFallbackArray();
-            for (const fallback of fallbacks)
+            for (const fallbackLang of fallbacks)
             {
-                const fallbackDict = this.cache.get(fallback);
-                texteBrut = resolveKey(fallbackDict, key);
-                if (texteBrut !== undefined) break; // On arrête dès qu'on trouve la clé
+                const fallbackDict = this.cache.get(fallbackLang);
+                texteBrut = resolveKey(fallbackDict, key as string);
+                if (texteBrut !== undefined) break;
             }
+        }
+
+        // Traitement du Fallback Local
+        if (texteBrut === undefined && fallback !== undefined)
+        {
+            // 1. On tente de résoudre le fallback comme une clé dans la langue actuelle
+            let fallbackTexte = resolveKey(this.traduction(), fallback);
+
+            // 2. Si non trouvé, on tente dans les langues de secours globales
+            if (fallbackTexte === undefined)
+            {
+                const fallbacks = this.getFallbackArray();
+                for (const fallbackLang of fallbacks)
+                {
+                    const fallbackDict = this.cache.get(fallbackLang);
+                    fallbackTexte = resolveKey(fallbackDict, fallback);
+                    if (fallbackTexte !== undefined) 
+                        break;
+                }
+            }
+
+            // 3. Si c'était bien une clé valide, on l'utilise. 
+            // Sinon, on considère que le développeur a passé du texte brut.
+            texteBrut = fallbackTexte !== undefined ? fallbackTexte : fallback;
         }
 
         if (texteBrut === undefined)
@@ -191,9 +215,9 @@ export class TraducteurCoreService
         return texteTraduit ?? key;
     }
 
-    translateSignal<K extends TranslationKey>(key: K, params?: ExtractParams<K>): Signal<string>
+    translateSignal<K extends TranslationKey>(key: K, params?: ExtractParams<K>, fallback?: TranslationKey | string): Signal<string>
     {
-        return computed(() => this.instant(key, params));
+        return computed(() => this.instant(key, params, fallback));
     }
 
     setTranslation(lang: string, dictionary: TranslationDictionary, merge = true): void
@@ -302,7 +326,7 @@ export class TraducteurCoreService
     private getFallbackArray(): string[]
     {
         const fallback = this.TRANSLATION_CONFIG?.fallbackLang;
-        if (!fallback) 
+        if (!fallback)
             return [];
 
         return Array.isArray(fallback) ? fallback : [fallback];

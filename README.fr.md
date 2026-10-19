@@ -5,14 +5,31 @@
 Une bibliothèque de traduction i18n moderne, légère et **basée sur les Signals** pour les applications Angular 22+.   
 Conçue dès le départ pour l'architecture Angular moderne, elle offre une **intégration SSR transparente (TransferState)**, un typage strict pour vos clés de traduction, et une mise en cache AST ultra-performante.
 
+## Sommaire
+- [Fonctionnalités](#fonctionnalités)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Utilisation](#utilisation)
+  - [1. Le Service de Traduction (Signals)](#1-le-service-de-traduction-signals)
+  - [2. Pipes Autonomes (Standalone)](#2-pipes-autonomes-standalone)
+  - [3. Directive Autonome (Standalone)](#3-directive-autonome-standalone)
+  - [4. Texte de secours local (Inline Fallback)](#4-texte-de-secours-local-inline-fallback)
+- [Typage Strict & CLI (Autocomplétion)](#typage-strict--cli-autocomplétion)
+- [Linter i18n (Vérification des clés)](#linter-i18n-vérification-des-clés)
+- [Tests Unitaires](#tests-unitaires)
+- [Lazy-Loading (Traductions par Scope)](#lazy-loading-traductions-par-scope)
+- [Sous le capot (Comment ça marche)](#sous-le-capot-comment-ça-marche)
+
 ## Fonctionnalités
 
 - **Signals Intégrés** : Traductions entièrement réactives utilisant les Signals d'Angular. Aucun code standard RxJS n'est requis.   
 - **Prêt pour le SSR (TransferState)** : Zéro scintillement ou double requête HTTP. Les traductions chargées sur le serveur sont directement injectées dans l'état du client.   
-- **Typage Strict (Autocomplétion)** : Une CLI intégrée génère les définitions TypeScript à partir de vos fichiers JSON, offrant une autocomplétion parfaite de vos clés de traduction dans l'IDE.   
-- **Lazy-Loading (Scopes)** : Chargez des fichiers de traduction spécifiques uniquement lors de la navigation vers des modules de fonctionnalités ou des routes chargées paresseusement (lazy-loaded).   
+- **Typage Strict (Autocomplétion)** : Une CLI intégrée génère les définitions TypeScript à partir de vos fichiers JSON, offrant une autocomplétion parfaite de vos clés ET de vos paramètres.
+- **Linter i18n** : Vérifiez l'intégrité de vos traductions et détectez les clés manquantes avant le déploiement.
+- **Test-Friendly** : Fournisseur utilitaire inclus pour simuler les traductions dans vos tests unitaires instantanément.
+- **Lazy-Loading (Scopes)** : Chargez des fichiers de traduction spécifiques uniquement lors de la navigation vers des modules de fonctionnalités.   
 - **Mise en cache AST** : Analyse ultra-rapide de l'interpolation de chaînes de caractères avec mise en cache mémoire intégrée.   
-- **Formatage Natif** : Inclut les pipes translateDate et translateNumber qui exploitent l'API native Intl pour une localisation impeccable.  
+- **Formatage Natif** : Inclut les pipes translateDate et translateNumber qui exploitent l'API native Intl.
 
 ## Installation
 
@@ -32,7 +49,7 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideHttpClient(withFetch()),
     provideTranslation({
-      defaultLang: 'en',
+      defaultLang: 'fr',
       fallbackLang: ['en'], // Chaîne de fallback prise en charge !
       sources: ['/i18n/'], // Chemin vers vos fichiers JSON
       autoDetect: true,
@@ -76,7 +93,8 @@ export class HeaderComponent
 ```
 
 ### 2. Pipes Autonomes (Standalone)
-Traduisez facilement du texte, des dates et des nombres directement dans vos templates HTML. Tous les pipes sont réactifs et se mettent à jour automatiquement lorsque la langue change.   
+Traduisez facilement du texte, des dates et des nombres directement dans vos templates HTML.  
+Tous les pipes sont réactifs et se mettent à jour automatiquement lorsque la langue change.   
 
 ```ts
 import { TranslatePipe, TranslateDatePipe, TranslateNumberPipe } from '@jetonpeche/angular-translate';
@@ -119,16 +137,37 @@ import { TranslateDirective } from '@jetonpeche/angular-translate';
 export class MyComponent {}
 ```
 
-## Typage Strict & CLI (Autocomplétion)
-Ne vous trompez plus jamais en tapant une clé de traduction ! La bibliothèque inclut un outil CLI pour analyser vos dictionnaires JSON et générer des définitions TypeScript strictes.
+### 4. Texte de secours local (Inline Fallback)
+Vous pouvez fournir une clé de secours ou un texte brut en 3ème paramètre au cas où la traduction principale n'existerait pas.
 
-1. Assurez-vous que vos fichiers de traduction JSON sont prêts (ex: `public/i18n/en.json`).   
-2. Exécutez l'outil CLI :   
+```html
+<!-- Si USER.PHONE n'existe pas, utilise la clé USER.PHONE_NOT_EXISTS -->
+<p>{{ 'USER.PHONE' | translate: undefined : 'USER.PHONE_NOT_EXISTS' }}</p>
+
+<!-- Vous pouvez aussi passer du texte brut -->
+<p>{{ 'USER.PHONE' | translate: undefined : 'Aucun numéro...' }}</p>
+```
+
+## Typage Strict & CLI (Autocomplétion)
+Ne vous trompez plus jamais en tapant une clé de traduction ! La CLI génère des définitions TypeScript strictes, avec **détection automatique des paramètres et de leurs types**.
+Évitez d'oublier des traductions avant un déploiement en production ! La bibliothèque inclut un Linter qui compare toutes vos langues avec un fichier de référence.
+
+```json
+{
+  "ACCOUNT.BALANCE": "Le solde de {name:string} est de {amount:number} au {date:Date}."
+}
+```
+
+### Exécuter la CLI
+Assurez-vous que vos fichiers de traduction JSON sont prêts (ex: `public/i18n/fr.json`) et lancez le script en prenant votre langue principale comme référence :
 
 ```bash
 # Tout les cas possible
-npx angular-translate-cli --input public/i18n/en.json --output src/translation-types.d.ts  
-npx angular-translate-cli -i public/i18n/en.json -o src/translation-types.d.ts  
+# Génération standard
+npx angular-translate-cli -i public/i18n/fr.json -o src/translation-types.d.ts  
+
+# Activer le Mode Watch (Recompilation automatique à chaque sauvegarde)
+npx angular-translate-cli -i public/i18n/fr.json --watch
 
 # Sortie par defaut src/translation-types.d.ts
 npx angular-translate-cli public/i18n/en.json  
@@ -148,8 +187,39 @@ Utilisable dans le `package.json` en tant que `scripts`
 }
 ```
 
+## Linter i18n (Vérification des clés)
+Évitez d'oublier des traductions avant un déploiement en production ! La bibliothèque inclut un Linter qui compare toutes vos langues.
+Le Linter est également inclus dans `angular-translate-cli`, mais se base sur un fichier pour comparer.
+
+```bash
+# Vérifie l'intégrité de tous les fichiers JSON du dossier
+npx angular-translate-check --dir public/i18n
+```
+
+## Tests Unitaires
+Pour écrire des tests unitaires (Jest/Jasmine) sans déclencher de vraies requêtes HTTP, utilisez le fournisseur utilitaire `provideTranslationTesting`.
+
+```ts
+import { TestBed } from '@angular/core/testing';
+import { provideTranslationTesting } from '@jetonpeche/angular-translate';
+
+describe('HeaderComponent', () => {
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [
+        // Injecte un mock synchrone parfait
+        provideTranslationTesting({
+            'HOME.TITLE': 'Titre de test',
+            'ACCOUNT.BALANCE': 'Solde: {amount}'
+        })
+      ]
+    });
+  });
+});
+```
+
 ## Lazy-Loading (Traductions par Scope)
-Optimisez votre application en chargeant les traductions uniquement lorsqu'une route spécifique est consultée.   
+Optimisez votre application en chargeant les traductions uniquement lorsqu'une route spécifique est consultée.
 
 ```ts
 import { Routes } from '@angular/router';
