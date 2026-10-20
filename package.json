@@ -21,7 +21,8 @@
   },
   "bin": {
     "angular-translate-cli": "bin/generate-types.js",
-    "angular-translate-check": "bin/translation-check.js"
+    "angular-translate-check": "bin/translation-check.js",
+    "angular-translate-extract": "bin/extract-translation.js"
   },
   "peerDependencies": {
     "@angular/common": ">=22.0.0",

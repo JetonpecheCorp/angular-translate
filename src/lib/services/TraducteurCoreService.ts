@@ -10,6 +10,8 @@ import { filter, firstValueFrom } from "rxjs";
 import { HttpClient } from "@angular/common/http";
 import { NavigationEnd, Router } from "@angular/router";
 import { ExtractParams, TranslationKey } from "../tokens/auto-complete-key";
+import { TRANSLATION_LOADER } from "../tokens/translation-loader";
+import { DefaultTranslationLoader } from "../Loaders/default-translation-loader";
 
 @Service()
 export class TraducteurCoreService
@@ -21,10 +23,10 @@ export class TraducteurCoreService
 
     private TRANSLATION_CONFIG = inject(TRANSLATION_CONFIG, { optional: true });
     private MISSING_TRANSLATION_HANDLER = inject(MISSING_TRANSLATION_HANDLER, { optional: true }) ?? new DefaultMissingHandler();
+    private loader = inject(TRANSLATION_LOADER, { optional: true }) ?? inject(DefaultTranslationLoader);
     private idPlateforme = inject(PLATFORM_ID);
     private translationStorageServ = inject(TranslationStorageService);
     private document = inject(DOCUMENT);
-    private http = inject(HttpClient);
     private router = inject(Router, { optional: true });
     private transferState = inject(TransferState);
 
@@ -53,24 +55,27 @@ export class TraducteurCoreService
         if (this.cache.has(lang))
             return this.cache.get(lang)!;
 
-        // 1. SSR OPTIMISATION : On vérifie si le serveur a déjà mis le JSON en cache
         const stateKey = makeStateKey<TranslationDictionary>(`translate-${lang}`);
         if (this.transferState.hasKey(stateKey))
         {
             const cachedData = this.transferState.get(stateKey, {});
-            this.transferState.remove(stateKey); // On nettoie pour libérer la mémoire
+            this.transferState.remove(stateKey);
             this.cache.set(lang, cachedData);
             return cachedData;
         }
 
-        const sources = this.TRANSLATION_CONFIG?.sources?.length
-            ? this.TRANSLATION_CONFIG.sources
-            : ['/assets/i18n/'];
+        const sources = this.TRANSLATION_CONFIG?.sources?.length ? 
+            this.TRANSLATION_CONFIG.sources
+            : 
+            ['/i18n/'];
 
-        const urls = sources.map(source => `${source}${lang}.json`);
-
+        // NOUVEAU : On utilise le loader au lieu du http
         const results = await Promise.allSettled(
-            urls.map(url => firstValueFrom(this.http.get<TranslationDictionary>(url)))
+            sources.map(source =>
+            {
+                const result = this.loader.getTranslation(lang, source);
+                return result instanceof Promise ? result : firstValueFrom(result);
+            })
         );
 
         const dictionaries = results
@@ -80,7 +85,6 @@ export class TraducteurCoreService
         const merged = deepMerge(...dictionaries);
         this.cache.set(lang, merged);
 
-        // 2. SSR OPTIMISATION : Si on est sur le serveur, on injecte le résultat dans le HTML
         if (isPlatformServer(this.idPlateforme))
             this.transferState.set(stateKey, merged);
 
@@ -99,8 +103,8 @@ export class TraducteurCoreService
             // Si on utilise des scopes, on précharge aussi les scopes actifs pour cette langue
             for (const [scope, source] of this.activeScopes.entries())
             {
-                const url = `${source}${lang}.json`;
-                const scopeDict = await firstValueFrom(this.http.get<TranslationDictionary>(url));
+                const result = this.loader.getTranslation(lang, source);
+                const scopeDict = await (result instanceof Promise ? result : firstValueFrom(result));
 
                 // On fusionne discrètement dans le cache
                 const existing = this.cache.get(lang) ?? {};
@@ -122,8 +126,8 @@ export class TraducteurCoreService
         {
             try
             {
-                const url = `${source}${lang}.json`;
-                const scopeDict = await firstValueFrom(this.http.get<TranslationDictionary>(url));
+                const result = this.loader.getTranslation(lang, source);
+                const scopeDict = await (result instanceof Promise ? result : firstValueFrom(result));
                 dictFinal = deepMerge(dictFinal, { [scope]: scopeDict });
             }
             catch (e) { }
@@ -146,11 +150,11 @@ export class TraducteurCoreService
         this.activeScopes.set(scope, source);
 
         const lang = this.langueActuelle();
-        const url = `${source}${lang}.json`;
 
         try
         {
-            const dictionary = await firstValueFrom(this.http.get<TranslationDictionary>(url));
+            const result = this.loader.getTranslation(lang, source);
+            const dictionary = await (result instanceof Promise ? result : firstValueFrom(result));
 
             // Encapsulation sous la clé du scope (ex: { "admin": { "TITLE": "..." } })
             const scopedDictionary = { [scope]: dictionary };
@@ -192,7 +196,7 @@ export class TraducteurCoreService
                 {
                     const fallbackDict = this.cache.get(fallbackLang);
                     fallbackTexte = resolveKey(fallbackDict, fallback);
-                    if (fallbackTexte !== undefined) 
+                    if (fallbackTexte !== undefined)
                         break;
                 }
             }

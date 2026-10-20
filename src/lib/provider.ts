@@ -1,9 +1,11 @@
 import { EnvironmentProviders, inject, makeEnvironmentProviders, provideAppInitializer, provideEnvironmentInitializer, Type } from "@angular/core";
 import { MISSING_TRANSLATION_HANDLER, MissingTranslationHandler, TRANSLATION_CONFIG, TranslationConfig } from "./tokens/translation";
 import { TraducteurCoreService } from "./services/TraducteurCoreService";
+import { TRANSLATION_LOADER, TranslationLoader } from "./tokens/translation-loader";
 
 export interface TranslationFeatureOptions {
     missingHandler?: Type<MissingTranslationHandler>;
+    loader?: Type<TranslationLoader>;
 }
 
 /**
@@ -31,6 +33,11 @@ export function provideTranslation(
             provide: TRANSLATION_CONFIG,
             useValue: config
         },
+        options?.loader ? 
+        {
+            provide: TRANSLATION_LOADER,
+            useClass: options.loader
+        } : [],
         options?.missingHandler ? 
         {
             provide: MISSING_TRANSLATION_HANDLER,

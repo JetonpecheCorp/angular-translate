@@ -13,11 +13,18 @@ Conçue dès le départ pour l'architecture Angular moderne, elle offre une **in
   - [1. Le Service de Traduction (Signals)](#1-le-service-de-traduction-signals)
   - [2. Pipes Autonomes (Standalone)](#2-pipes-autonomes-standalone)
   - [3. Directive Autonome (Standalone)](#3-directive-autonome-standalone)
-  - [4. Texte de secours local (Inline Fallback)](#4-texte-de-secours-local-inline-fallback)
+  - [4. Directive Structurelle (*translateGroup)](#4-directive-structurelle-translategroup)
+  - [5. Texte de secours local (Inline Fallback)](#5-texte-de-secours-local-inline-fallback)
 - [Typage Strict & CLI (Autocomplétion)](#typage-strict--cli-autocomplétion)
 - [Linter i18n (Vérification des clés)](#linter-i18n-vérification-des-clés)
+- [Extracteur de clés (Code => JSON)](#extracteur-de-clés-code--json)
 - [Tests Unitaires](#tests-unitaires)
 - [Lazy-Loading (Traductions par Scope)](#lazy-loading-traductions-par-scope)
+- [Fonctionnalités Avancées](#fonctionnalités-avancées)
+  - [1. Pluralisation Native (Norme CLDR)](#1-pluralisation-native-norme-cldr)
+  - [2. Custom Loader (Chargement depuis une base de données / API)](#2-custom-loader-chargement-depuis-une-base-de-données--api)
+  - [3. Monitoring des clés manquantes (Sentry, Datadog)](#3-monitoring-des-clés-manquantes-sentry-datadog)
+  - [Déclaration dans app.config.ts](#déclaration-dans-appconfigts)
 - [Sous le capot (Comment ça marche)](#sous-le-capot-comment-ça-marche)
 
 ## Fonctionnalités
@@ -25,7 +32,7 @@ Conçue dès le départ pour l'architecture Angular moderne, elle offre une **in
 - **Signals Intégrés** : Traductions entièrement réactives utilisant les Signals d'Angular. Aucun code standard RxJS n'est requis.   
 - **Prêt pour le SSR (TransferState)** : Zéro scintillement ou double requête HTTP. Les traductions chargées sur le serveur sont directement injectées dans l'état du client.   
 - **Typage Strict (Autocomplétion)** : Une CLI intégrée génère les définitions TypeScript à partir de vos fichiers JSON, offrant une autocomplétion parfaite de vos clés ET de vos paramètres.
-- **Linter i18n** : Vérifiez l'intégrité de vos traductions et détectez les clés manquantes avant le déploiement.
+- **Linter & Extracteur i18n** : Vérifiez l'intégrité de vos traductions et extrayez automatiquement les nouvelles clés depuis votre code HTML/TS.
 - **Test-Friendly** : Fournisseur utilitaire inclus pour simuler les traductions dans vos tests unitaires instantanément.
 - **Lazy-Loading (Scopes)** : Chargez des fichiers de traduction spécifiques uniquement lors de la navigation vers des modules de fonctionnalités.   
 - **Mise en cache AST** : Analyse ultra-rapide de l'interpolation de chaînes de caractères avec mise en cache mémoire intégrée.   
@@ -120,7 +127,8 @@ export class MyComponent {}
 ```
 
 ### 3. Directive Autonome (Standalone)
-Pour les contenus HTML complexes ou les traductions devant être assainies pour des raisons de sécurité, utilisez la directive `translate`.   
+Pour les contenus HTML complexes devant être assainis contre les failles XSS, utilisez la directive `[translate]`.  
+Elle utilise le `DomSanitizer` et injecte le résultat dans le `innerHTML`.
 
 ```ts
 import { TranslateDirective } from '@jetonpeche/angular-translate';
@@ -129,15 +137,27 @@ import { TranslateDirective } from '@jetonpeche/angular-translate';
   standalone: true,
   imports: [TranslateDirective],
   template: `
-    <div [translate]="'HOME.DESCRIPTION'" [translateParams]="{ boldText: 'Génial' }">
-      Texte de secours par défaut si la traduction est manquante.
+    <div [translate]="'HOME.DESCRIPTION'" 
+        [translateParams]="{ boldText: 'Génial' }"
+        [translateFallback]="'HOME.NO_DESCRIPTION'">
     </div>
   `
 })
 export class MyComponent {}
 ```
 
-### 4. Texte de secours local (Inline Fallback)
+### 4. Directive Structurelle (*translateGroup)
+Lorsqu'un bloc HTML contient de nombreuses traductions, évitez de répéter le pipe `| translate` en utilisant la directive structurelle `*translateGroup`.
+
+```html
+<ng-container *translateGroup="let t">
+   <h1>{{ t('HOME.TITLE') }}</h1>
+   <p>{{ t('HOME.SUBTITLE', { name: 'Alice' }) }}</p>
+   <button>{{ t('HOME.BTN') }}</button>
+</ng-container>
+```
+
+### 5. Texte de secours local (Inline Fallback)
 Vous pouvez fournir une clé de secours ou un texte brut en 3ème paramètre au cas où la traduction principale n'existerait pas.
 
 ```html
@@ -152,6 +172,9 @@ Vous pouvez fournir une clé de secours ou un texte brut en 3ème paramètre au 
 Ne vous trompez plus jamais en tapant une clé de traduction ! La CLI génère des définitions TypeScript strictes, avec **détection automatique des paramètres et de leurs types**.
 Évitez d'oublier des traductions avant un déploiement en production ! La bibliothèque inclut un Linter qui compare toutes vos langues avec un fichier de référence.
 
+### Déclarer des types dans votre JSON
+Dans vos fichiers JSON, vous pouvez typer vos variables avec la syntaxe `{variable:type}`. Si le type est omis, `string` est utilisé par défaut.
+
 ```json
 {
   "ACCOUNT.BALANCE": "Le solde de {name:string} est de {amount:number} au {date:Date}."
@@ -161,16 +184,18 @@ Ne vous trompez plus jamais en tapant une clé de traduction ! La CLI génère d
 ### Exécuter la CLI
 Assurez-vous que vos fichiers de traduction JSON sont prêts (ex: `public/i18n/fr.json`) et lancez le script en prenant votre langue principale comme référence :
 
+| Parametre | Alias | Description | Defaut / Requis |
+|:--- |:--- |:--- |:--- |
+| `--input` | `-i` | Fichier JSON source servant de référence (ex: `fr.json`). | **Requis** |
+| `--output` | `-o` | Chemin du fichier de déclaration TypeScript généré. | `src/translation-types.d.ts`|
+| `--watch` | `-w` | Active l'écoute du dossier pour regénérer les types à chaque sauvegarde. | `false` |
+
 ```bash
-# Tout les cas possible
 # Génération standard
 npx angular-translate-cli -i public/i18n/fr.json -o src/translation-types.d.ts  
 
 # Activer le Mode Watch (Recompilation automatique à chaque sauvegarde)
 npx angular-translate-cli -i public/i18n/fr.json --watch
-
-# Sortie par defaut src/translation-types.d.ts
-npx angular-translate-cli public/i18n/en.json  
 
 # Creation des dossiers s'ils n'existent pas
 npx angular-translate-cli -i en.json -o src/dossier/existe/pas/translation-types.d.ts
@@ -188,12 +213,34 @@ Utilisable dans le `package.json` en tant que `scripts`
 ```
 
 ## Linter i18n (Vérification des clés)
-Évitez d'oublier des traductions avant un déploiement en production ! La bibliothèque inclut un Linter qui compare toutes vos langues.
-Le Linter est également inclus dans `angular-translate-cli`, mais se base sur un fichier pour comparer.
+Évitez d'oublier des traductions avant un déploiement ! La bibliothèque inclut un Linter qui compare toutes vos langues.
+
+| Paramètre | Alias | Description | Défaut / Requis |
+| :--- | :--- | :--- | :--- |
+| `--dir` | `-d` | Dossier contenant l'ensemble de vos fichiers JSON de traduction. | **Requis** |
 
 ```bash
 # Vérifie l'intégrité de tous les fichiers JSON du dossier
 npx angular-translate-check --dir public/i18n
+```
+Le script renverra une erreur (code 1, idéal pour bloquer un pipeline CI/CD) s'il trouve des clés manquantes ou des clés obsolètes (mortes) dans les autres fichiers de langue.
+
+## Extracteur de clés (Code => JSON)
+Détectez automatiquement les nouvelles clés ajoutées dans votre code source (`.html` et `.ts`) et ajoutez-les à votre fichier JSON de référence.
+
+| Paramètre | Alias | Description | Défaut / Requis |
+| :--- | :--- | :--- | :--- |
+| `--json` | `-j` | Fichier JSON de référence à vérifier ou mettre à jour. | **Requis** |
+| `--src` | `-s` | Dossier contenant votre code source à analyser. | `src/` |
+| `--add` | *(aucun)*| Insère automatiquement les clés trouvées dans le code mais absentes du JSON. | `false` |
+| `--value`| `-v` | Valeur assignée aux nouvelles clés ajoutées (nécessite `--add`). | `NOT_TRANSLATE_VALUE` |
+
+```bash
+# Analyse le code et signale les clés non déclarées dans le JSON
+npx angular-translate-extract -j public/i18n/fr.json -s src/
+
+# Ajoute automatiquement les clés manquantes au JSON avec une valeur par défaut
+npx angular-translate-extract -j public/i18n/fr.json -s src/ --add --value "NOT_TRANSLATE_VALUE"
 ```
 
 ## Tests Unitaires
@@ -235,6 +282,94 @@ export const routes: Routes = [
 ];
 ```
 
+## Fonctionnalités Avancées
+
+### 1. Pluralisation Native (Norme CLDR)
+La bibliothèque gère la pluralisation de manière native grâce à l'API standard `Intl.PluralRules`, sans aucune dépendance tierce.  
+
+Elle se base sur les règles grammaticales internationales (Unicode CLDR). Pour l'utiliser, vous **devez** obligatoirement passer un paramètre nommé `count` dans votre interpolation.  
+L'API évaluera ce nombre et cherchera l'une des sous-clés suivantes : **`zero`, `one`, `two`, `few`, `many`, ou `other`**.  
+La clé `other` est obligatoire en cas de repli.
+
+```json
+{
+  "CART.ITEMS": {
+    "zero": "Votre panier est vide",
+    "one": "1 article dans le panier",
+    "other": "{count} articles dans le panier"
+  }
+}
+```
+```html
+<!-- La directive détecte automatiquement le paramètre "count" -->
+<p>{{ 'CART.ITEMS' | translate:{ count: cart.length } }}</p>
+```
+
+> **Remarque importante sur les règles grammaticales :**
+Le système lit exclusivement la variable `count` et applique une logique grammaticale (et non mathématique) qui varie selon la langue active :  
+En Français, `0` et `1` sont tous les deux considérés comme singuliers. L'API ciblera donc la clé `"one"` pour 0 (ex: "0 article").  
+En Anglais, `1` est singulier (`"one"`), mais `0` est pluriel. L'API ciblera donc la clé `"other"` pour 0 (ex: "0 items").  
+La clé `"zero"` ne sera déclenchée automatiquement que pour les langues ayant une règle grammaticale stricte pour le zéro (comme l'arabe ou le letton).  
+Assurez-vous de toujours fournir au minimum la clé `"other"`, qui sert de valeur par défaut universelle.  
+
+### 2. Custom Loader (Chargement depuis une base de données / API)
+Par défaut, la bibliothèque charge des fichiers JSON locaux via `HttpClient`. Vous pouvez surcharger ce comportement pour charger vos traductions depuis Supabase, Firebase, ou une API GraphQL en créant votre propre `TranslationLoader`.
+
+```ts
+import { TranslationLoader, provideTranslation } from '@jetonpeche/angular-translate';
+
+@Service()
+export class MyGraphQLLoader implements TranslationLoader 
+{
+  getTranslation(lang: string, source: string) 
+  {
+    // Retourne un Observable ou une Promise avec votre dictionnaire
+    return this.apollo.query({ ... }); 
+  }
+}
+```
+
+### 3. Monitoring des clés manquantes (Sentry, Datadog)
+Lorsqu'une traduction est introuvable, vous pouvez intercepter l'événement pour alerter votre équipe ou envoyer un log à Sentry.
+
+```ts
+import { MissingTranslationHandler, MissingTranslationEvent } from '@jetonpeche/angular-translate';
+
+@Service()
+export class MyMissingHandler implements MissingTranslationHandler 
+{
+  handle(event: MissingTranslationEvent): string
+  {
+    console.warn(`[SENTRY LOG] Clé manquante: ${event.key} en langue ${event.currentLang}`);
+    return `[${event.key}]`; // Valeur affichée à l'écran
+  }
+}
+```
+
+### Déclaration dans app.config.ts
+Passez simplement vos classes personnalisées dans le deuxième paramètre de la fonction `provideTranslation`.
+
+```ts
+import { provideTranslation } from '@jetonpeche/angular-translate';
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideTranslation(
+      // 1er paramètre : La configuration classique
+      { 
+        defaultLang: 'fr', 
+        sources: ['/i18n/'] 
+      }, 
+      // 2ème paramètre : Les options avancées
+      { 
+        loader: MyGraphQLLoader,         
+        missingHandler: MyMissingHandler 
+      } 
+    )
+  ]
+};
+```
+
 ## Sous le capot (Comment ça marche)
 Pour garantir des performances et une prévisibilité maximales, `@jetonpeche/angular-translate` s'appuie sur plusieurs mécanismes internes avancés.
 
@@ -245,7 +380,7 @@ Vous pouvez charger des traductions directement depuis un CMS, un CDN ou un back
 ```ts
 provideTranslation({
   sources: [
-    '/assets/i18n/',  // Source locale (chargée en premier)
+    '/i18n/',  // Source locale (chargée en premier)
     'https://api.my-cdn.com/translations/v1/' // Seconde source distante (fusionnée par-dessus)
   ]
 })
