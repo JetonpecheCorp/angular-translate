@@ -4,7 +4,7 @@ import path from 'node:path';
 
 const packageName = '@jetonpeche/angular-translate';
 
-// 1. Analyse des arguments
+// Analyse des arguments
 const args = process.argv.slice(2);
 let inputParam = '';
 let outputParam = 'src/translation-types.d.ts';
@@ -16,14 +16,17 @@ for (let i = 0; i < args.length; i++)
     {
         inputParam = args[i + 1];
         i++;
-    } else if (args[i] === '--output' || args[i] === '-o')
+    } 
+    else if (args[i] === '--output' || args[i] === '-o')
     {
         outputParam = args[i + 1];
         i++;
-    } else if (args[i] === '--watch' || args[i] === '-w')
+    } 
+    else if (args[i] === '--watch' || args[i] === '-w')
     {
         watchMode = true;
-    } else if (!inputParam && !args[i].startsWith('-'))
+    } 
+    else if (!inputParam && !args[i].startsWith('-'))
     {
         inputParam = args[i];
     }
@@ -31,7 +34,7 @@ for (let i = 0; i < args.length; i++)
 
 if (!inputParam)
 {
-    console.error("❌ Veuillez spécifier le fichier source de référence : npx angular-translate-cli -i src/assets/i18n/fr.json");
+    console.error("❌ Please specify the reference source file: npx angular-translate-cli -i public/i18n/fr.json");
     process.exit(1);
 }
 
@@ -109,22 +112,22 @@ function generateAndCheck()
 {
     console.clear();
     const time = new Date().toLocaleTimeString();
-    console.log(`\n⏳ [${time}] Compilation et analyse i18n...`);
+    console.log(`\n⏳ [${time}] Compilation and analysis i18n...`);
 
     if (!fs.existsSync(jsonPath))
     {
-        console.error(`❌ Fichier de référence introuvable : ${jsonPath}`);
+        console.error(`❌ Reference file not found: ${jsonPath}`);
         return;
     }
 
-    // --- 1. GÉNÉRATION DES TYPES ---
+    // GÉNÉRATION DES TYPES
     let dictionnaire;
     try
     {
         dictionnaire = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
     } catch (error)
     {
-        console.error("❌ Erreur de lecture du JSON de référence :", error.message);
+        console.error("❌ Error reading reference JSON:", error.message);
         return;
     }
 
@@ -140,20 +143,20 @@ function generateAndCheck()
         return `        "${item.key}": { ${props} };`;
     }).join('\n');
 
-    const dtsContent = `// Fichier généré automatiquement - NE PAS MODIFIER MANUELLEMENT\nimport '${packageName}';\n\ndeclare module '${packageName}' {\n    export interface TranslationSchema {\n${interfaceProps}\n    }\n    export interface TranslationParams {\n${paramsProps}\n    }\n}\n`;
+    const dtsContent = `// Automatically generated file - DO NOT EDIT MANUALLY\nimport '${packageName}';\n\ndeclare module '${packageName}' {\n    export interface TranslationSchema {\n${interfaceProps}\n    }\n    export interface TranslationParams {\n${paramsProps}\n    }\n}\n`;
 
     const outputDir = path.dirname(outputPath);
     if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
     fs.writeFileSync(outputPath, dtsContent);
 
-    console.log(`✅ Typage généré (${referenceKeys.length} clés) dans ${outputParam}`);
+    console.log(`✅ Generated typing (${referenceKeys.length} keys) in ${outputParam}`);
 
-    // --- 2. VÉRIFICATION DES AUTRES LANGUES ---
+    // VÉRIFICATION DES AUTRES LANGUES
     const otherFiles = fs.readdirSync(i18nDir).filter(f => f.endsWith('.json') && path.join(i18nDir, f) !== jsonPath);
 
     if (otherFiles.length > 0)
     {
-        console.log(`\n🔍 Synchronisation par rapport à "${path.basename(jsonPath)}" :`);
+        console.log(`\n🔍 Synchronization with respect to "${path.basename(jsonPath)}" :`);
 
         for (const file of otherFiles)
         {
@@ -167,17 +170,17 @@ function generateAndCheck()
 
                 if (missing.length === 0 && extra.length === 0)
                 {
-                    console.log(`  🟢 ${file} : 100% à jour.`);
+                    console.log(`  🟢 ${file} : 100% up to date.`);
                 } 
                 else
                 {
                     console.log(`  🔴 ${file} :`);
-                    if (missing.length > 0) console.log(`     ❌ Manque ${missing.length} clé(s) (ex: ${missing.slice(0, 3).join(', ')}${missing.length > 3 ? '...' : ''})`);
-                    if (extra.length > 0) console.log(`     🗑️  Contient ${extra.length} clé(s) obsolète(s) (ex: ${extra.slice(0, 3).join(', ')}${extra.length > 3 ? '...' : ''})`);
+                    if (missing.length > 0) console.log(`     ❌ Missing ${missing.length} key(s) (ex: ${missing.slice(0, 3).join(', ')}${missing.length > 3 ? '...' : ''})`);
+                    if (extra.length > 0) console.log(`     🗑️  Contains ${extra.length} obsolete key(s)(s) (ex: ${extra.slice(0, 3).join(', ')}${extra.length > 3 ? '...' : ''})`);
                 }
             } catch (e)
             {
-                console.log(`  ⚠️  ${file} : Erreur de lecture JSON.`);
+                console.log(`  ⚠️  ${file} : JSON read error.`);
             }
         }
     }
@@ -190,7 +193,7 @@ generateAndCheck();
 // Mode Watch (Écoute TOUT LE DOSSIER i18n)
 if (watchMode)
 {
-    console.log(`👀 Mode Watch activé. En écoute sur le dossier : ${i18nDir}`);
+    console.log(`👀 Watch mode enabled. Listening on the file: ${i18nDir}`);
     let debounceTimer;
 
     fs.watch(i18nDir, (eventType, filename) =>

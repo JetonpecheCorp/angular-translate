@@ -38,7 +38,7 @@ for (let i = 0; i < args.length; i++)
 
 if (!jsonParam)
 {
-    console.error("❌ Précisez le fichier JSON de référence : npx angular-translate-extract -j public/i18n/fr.json");
+    console.error("❌ Specify the reference JSON file: npx angular-translate-extract -j public/i18n/fr.json");
     process.exit(1);
 }
 
@@ -47,7 +47,7 @@ const srcPath = path.resolve(process.cwd(), srcParam);
 
 if (!fs.existsSync(jsonPath))
 {
-    console.error(`❌ Fichier JSON introuvable : ${jsonPath}`);
+    console.error(`❌ JSON file not found: ${jsonPath}`);
     process.exit(1);
 }
 
@@ -96,7 +96,7 @@ function walkDir(dir, callback)
     });
 }
 
-console.log(`\n🔍 Scan du code source dans "${srcParam}"...`);
+console.log(`\n🔍 Scanning the source code in "${srcParam}"...`);
 
 const usedKeys = new Set();
 // Regex pour capter : 'MA_CLE' | translate  ET  translate.instant('MA_CLE') ET t('MA_CLE')
@@ -130,22 +130,22 @@ const missingKeys = [...usedKeys].filter(k => !existingKeys.includes(k));
 
 if (missingKeys.length === 0)
 {
-    console.log("✅ Toutes les clés utilisées dans le code existent dans le JSON.");
+    console.log("✅ All keys used in the code exist in the JSON.");
     process.exit(0);
 }
 
-console.log(`⚠️  ${missingKeys.length} clé(s) trouvée(s) dans le code mais absente(s) du JSON :`);
+console.log(`⚠️  ${missingKeys.length} key(s) found(s) in code but missing(s) from JSON:`);
 missingKeys.forEach(k => console.log(`   - ${k}`));
 
 // 5. Ajout auto (si flag --add)
 if (autoAdd)
 {
-    console.log(`\n➕ Ajout automatique des clés manquantes avec la valeur "${defaultValue}"...`);
+    console.log(`\n➕ Automatic addition of missing keys with value "${defaultValue}"...`);
     missingKeys.forEach(k => setDeepValue(dictionnaire, k, defaultValue));
 
     fs.writeFileSync(jsonPath, JSON.stringify(dictionnaire, null, 2) + '\n', 'utf-8');
-    console.log(`✅ Fichier ${jsonParam} mis à jour avec succès !`);
+    console.log(`✅ ${jsonParam} file successfully updated!`);
 } else
 {
-    console.log(`\n💡 Astuce : Lancez la commande avec "--add" pour les insérer automatiquement.`);
+    console.log(`\n💡 Tip: Run the command with "--add" to insert them automatically.`);
 }
