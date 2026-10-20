@@ -281,21 +281,50 @@ describe('HeaderComponent', () => {
 ```
 
 ## Lazy-Loading (Traductions par Scope)
-Optimisez votre application en chargeant les traductions uniquement lorsqu'une route spécifique est consultée.
+Il arrive souvent qu'une application ait besoin d'une approche hybride : charger les traductions principales très rapidement via des fichiers JSON locaux, mais charger les traductions d'un module spécifique (comme un panneau d'administration) depuis une API distante ou une base de données.
 
+`@jetonpeche/angular-translate` permet d'assigner un **Loader exclusif à un Scope particulier**. S'il est défini, ce chargeur surchargera le chargeur global uniquement pour ce module.
+
+Dans cet exemple, au lieu de lire un fichier local, nous interrogeons une API REST. La propriété `source` n'est plus un chemin de dossier, mais l'URL de l'API.  
+Passez simplement votre classe personnalisée dans la propriété `loader` de la configuration du scope.
 ```ts
+import { Injectable, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { TranslationLoader } from '@jetonpeche/angular-translate';
+
+@Injectable()
+export class AdminApiLoader implements TranslationLoader 
+{
+  private http = inject(HttpClient);
+
+  getTranslation(lang: string, source: string) 
+  {
+    // source = "https://api.mon-backend.com/traductions/admin/"
+    // On requête l'API distante au lieu d'un fichier JSON local
+    return this.http.get(`${source}${lang}`);
+  }
+}
+
 import { Routes } from '@angular/router';
 import { provideTranslationScope } from '@jetonpeche/angular-translate';
 
 export const routes: Routes = [
   {
     path: 'admin',
-    // Récupère automatiquement '/i18n/admin/en.json' lors de la visite de cette route
-    providers: [provideTranslationScope('admin', '/i18n/admin/')],
+    // Récupère automatiquement '/i18n/admin/[lang].json' lors de la visite de cette route
+    providers: [
+      provideTranslationScope({ 
+        scope: 'admin', 
+        source: '/i18n/admin/', // L'URL passée au loader
+        loader: AdminApiLoader // Surcharge le loader uniquement pour ce scope !
+      })
+    ],
     loadComponent: () => import('./admin/admin.component')
   }
 ];
 ```
+
+>**Note** : La flexibilité est totale. Le paramètre `source` transmet simplement une chaîne de caractères à votre `TranslationLoader`. Vous êtes libre d'y mettre un chemin local, une URL, ou même un identifiant de base de données (ex: `supabase-table-admin`).
 
 ## Fonctionnalités Avancées
 

@@ -1,6 +1,7 @@
 // Types & Contrats
 export type { 
     TranslationConfig, 
+    TranslationScopeConfig,
     TranslationDictionary, 
     PluralForms, 
     MissingTranslationHandler, 

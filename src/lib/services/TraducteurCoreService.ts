@@ -7,10 +7,9 @@ import { resolveKey } from "../utils/key-resolver";
 import { DefaultMissingHandler } from "../handlers/default-missing-handler";
 import { interpolate } from "../utils/interpolator";
 import { filter, firstValueFrom } from "rxjs";
-import { HttpClient } from "@angular/common/http";
 import { NavigationEnd, Router } from "@angular/router";
 import { ExtractParams, TranslationKey } from "../tokens/auto-complete-key";
-import { TRANSLATION_LOADER } from "../tokens/translation-loader";
+import { TRANSLATION_LOADER, TranslationLoader } from "../tokens/translation-loader";
 import { DefaultTranslationLoader } from "../Loaders/default-translation-loader";
 
 @Service()
@@ -32,7 +31,7 @@ export class TraducteurCoreService
 
     private cache = new Map<string, TranslationDictionary>();
     private traduction = signal<TranslationDictionary>({});
-    private activeScopes = new Map<string, string>();
+    private activeScopes = new Map<string, { source: string, loader?: TranslationLoader }>();
 
     async init(): Promise<void>
     {
@@ -101,9 +100,10 @@ export class TraducteurCoreService
         {
             await this.loadLangue(lang);
             // Si on utilise des scopes, on précharge aussi les scopes actifs pour cette langue
-            for (const [scope, source] of this.activeScopes.entries())
+            for (const [scope, config] of this.activeScopes.entries())
             {
-                const result = this.loader.getTranslation(lang, source);
+                const activeLoader = config.loader ?? this.loader;
+                const result = activeLoader.getTranslation(lang, config.source);
                 const scopeDict = await (result instanceof Promise ? result : firstValueFrom(result));
 
                 // On fusionne discrètement dans le cache
@@ -122,11 +122,12 @@ export class TraducteurCoreService
         let dictFinal = await this.loadLangue(lang);
 
         // Rechargement des scopes actifs pour la nouvelle langue
-        for (const [scope, source] of this.activeScopes.entries())
+        for (const [scope, config] of this.activeScopes.entries())
         {
             try
             {
-                const result = this.loader.getTranslation(lang, source);
+                const activeLoader = config.loader ?? this.loader;
+                const result = activeLoader.getTranslation(lang, config.source);
                 const scopeDict = await (result instanceof Promise ? result : firstValueFrom(result));
                 dictFinal = deepMerge(dictFinal, { [scope]: scopeDict });
             }
@@ -142,18 +143,20 @@ export class TraducteurCoreService
             this.translationStorageServ.set("app_lang", lang);
     }
 
-    async loadScope(scope: string, source: string): Promise<void>
+    async loadScope(scope: string, source: string, customLoader?: TranslationLoader): Promise<void>
     {
         if (this.activeScopes.has(scope))
             return;
 
-        this.activeScopes.set(scope, source);
+        // Sauvegarde le scope avec son loader spécifique pour les futurs changements de langue
+        this.activeScopes.set(scope, { source, loader: customLoader });
 
         const lang = this.langueActuelle();
 
         try
         {
-            const result = this.loader.getTranslation(lang, source);
+            const activeLoader = customLoader ?? this.loader;
+            const result = activeLoader.getTranslation(lang, source);
             const dictionary = await (result instanceof Promise ? result : firstValueFrom(result));
 
             // Encapsulation sous la clé du scope (ex: { "admin": { "TITLE": "..." } })

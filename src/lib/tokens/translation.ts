@@ -1,4 +1,5 @@
-import { InjectionToken } from "@angular/core";
+import { InjectionToken, Type } from "@angular/core";
+import { TranslationLoader } from "./translation-loader";
 
 /**
  * Global configuration options for the translation service.
@@ -89,6 +90,28 @@ export interface TranslationFormatOptions
      * @example { dateStyle: 'short', timeStyle: 'short' } 
      */
     date?: Intl.DateTimeFormatOptions;
+}
+
+export interface TranslationScopeConfig 
+{
+    /**
+     * The name of the scope (the namespace) in which the translations will be isolated.
+     * @example 'admin'
+     */
+    scope: string;
+
+    /**
+     * The path to the folder containing the JSON files of this scope.
+     * @example '/i18n/admin/'
+     */
+    source: string;
+
+    /**
+     * An optional custom loader exclusive to this scope.
+     * If not provided, the scope will fall back to using the global loader 
+     * configured in the root application.
+     */
+    loader?: Type<TranslationLoader>;
 }
 
 /**

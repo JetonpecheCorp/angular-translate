@@ -1,5 +1,5 @@
-import { EnvironmentProviders, inject, makeEnvironmentProviders, provideAppInitializer, provideEnvironmentInitializer, Type } from "@angular/core";
-import { MISSING_TRANSLATION_HANDLER, MissingTranslationHandler, TRANSLATION_CONFIG, TranslationConfig } from "./tokens/translation";
+import { EnvironmentProviders, inject, makeEnvironmentProviders, provideAppInitializer, provideEnvironmentInitializer, Provider, Type } from "@angular/core";
+import { MISSING_TRANSLATION_HANDLER, MissingTranslationHandler, TRANSLATION_CONFIG, TranslationConfig, TranslationScopeConfig } from "./tokens/translation";
 import { TraducteurCoreService } from "./services/TraducteurCoreService";
 import { TRANSLATION_LOADER, TranslationLoader } from "./tokens/translation-loader";
 
@@ -58,22 +58,40 @@ export function provideTranslation(
  * export const routes: Routes = [
  *   {
  *     path: 'admin',
- *     providers: [provideTranslationScope('admin', '/assets/i18n/admin/')],
+ *     providers: [provideTranslationScope({ scope: 'admin', source: '/assets/i18n/admin/' })],
  *     loadComponent: () => import('./admin.component')
  *   }
  * ];
  * 
- * @param scope The namespace for this specific translation file (e.g., 'admin').
- * @param source The URL path prefix where the JSON files are located (e.g., '/assets/i18n/admin/').
+ * @param config The configuration object for the translation scope.
  * @returns A set of environment providers that triggers the lazy loading of the scope.
  */
-export function provideTranslationScope(scope: string, source: string): EnvironmentProviders
+export function provideTranslationScope(config: TranslationScopeConfig): EnvironmentProviders
 {
-    return makeEnvironmentProviders([
-        provideEnvironmentInitializer(() =>
+    const providers: Array<Provider | EnvironmentProviders> = [];
+
+    // Si l'utilisateur fournit un loader spécifique, on le déclare dans l'injecteur de cette route
+    if (config.loader) 
+        providers.push(config.loader);
+
+    providers.push(provideEnvironmentInitializer(() =>
+    {
+        const globalConfig = inject(TRANSLATION_CONFIG, { optional: true });
+        
+        if (!globalConfig) 
         {
-            const tradServ = inject(TraducteurCoreService); 
-            tradServ.loadScope(scope, source);
-        })
-    ]);
+            throw new Error(
+                `[Angular Translate] Erreur fatale : Vous essayez de charger le scope "${config.scope}" via provideTranslationScope(), mais le service principal n'a pas été initialisé. Veuillez ajouter provideTranslation() dans votre app.config.ts.`
+            );
+        }
+
+        const tradServ = inject(TraducteurCoreService); 
+        
+        // On récupère l'instance du loader spécifique s'il a été défini
+        const customLoader = config.loader ? inject(config.loader) : undefined;
+
+        tradServ.loadScope(config.scope, config.source, customLoader);
+    }));
+
+    return makeEnvironmentProviders(providers);
 }
