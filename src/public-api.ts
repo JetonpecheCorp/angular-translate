@@ -8,6 +8,7 @@ export type {
 } from './lib/tokens/translation';
 
 export * from './lib/tokens/translation-loader';
+export * from './lib/strategies/translate-title-strategy';
 
 export * from './lib/provider';
 
