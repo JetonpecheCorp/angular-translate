@@ -60,6 +60,35 @@ export interface TranslationConfig
      * // Setting `pathIndex: 1` will automatically detect and apply 'fr'.
      */
     pathIndex?: number;
+
+    /**
+     * Language-specific formatting configuration for dates and numbers.
+     * The keys should be the language codes (e.g., 'fr', 'en').
+     * If the current language has no specific configuration, the system 
+     * will fallback to the configuration of the `defaultLang`.
+     * 
+     * @example
+     * formatConfig: {
+     *   'fr': { number: { style: 'currency', currency: 'EUR' } },
+     *   'en': { number: { style: 'currency', currency: 'USD' } }
+     * }
+     */
+    formatConfig?: Record<string, TranslationFormatOptions>;
+}
+
+export interface TranslationFormatOptions 
+{
+    /** 
+     * Default options for the native `Intl.NumberFormat` API. 
+     * @example { style: 'currency', currency: 'EUR' } 
+     */
+    number?: Intl.NumberFormatOptions;
+
+    /** 
+     * Default options for the native `Intl.DateTimeFormat` API. 
+     * @example { dateStyle: 'short', timeStyle: 'short' } 
+     */
+    date?: Intl.DateTimeFormatOptions;
 }
 
 /**

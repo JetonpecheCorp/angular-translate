@@ -1,6 +1,51 @@
 import { TranslationValue } from "../tokens/translation";
 
 const astCache = new Map<string, string[]>();
+const MAX_CACHE_SIZE = 1000;
+
+/**
+ * Fonction récursive pour descendre dans un arbre JSON de traduction.
+ * Elle permet de cumuler le Contexte (genre, rôle) ET le Pluriel.
+ */
+function resolveNode(node: any, params: Record<string, any> | undefined, lang: string): string | undefined
+{
+    // Condition de sortie : on a trouvé la chaîne finale
+    if (typeof node === 'string') 
+        return node;
+
+    if (typeof node !== 'object' || node === null) 
+        return undefined;
+
+    // 1. Résolution par CONTEXTE (si le paramètre 'context' est passé)
+    if (params?.['context'] !== undefined && node[params['context']] !== undefined)
+    {
+        const nextParams = { ...params };
+        delete nextParams['context']; // On le retire pour éviter de boucler dessus
+        return resolveNode(node[params['context']], nextParams, lang);
+    }
+
+    // 2. Résolution par PLURIEL (si le paramètre 'count' est passé)
+    if (params?.['count'] !== undefined && params?.['count'] !== null)
+    {
+        const countValue = Number(params['count']);
+        const rule = new Intl.PluralRules(lang).select(countValue);
+        
+        if (node[rule] !== undefined)
+        {
+            const nextParams = { ...params };
+            delete nextParams['count']; // On le retire
+            return resolveNode(node[rule], nextParams, lang);
+        }
+    }
+
+    // 3. Valeur de REPLI "other"
+    if (node['other'] !== undefined)
+    {
+        return resolveNode(node['other'], params, lang);
+    }
+
+    return undefined; // Échec de la résolution
+}
 
 export function interpolate(
     value: TranslationValue | undefined,
@@ -11,51 +56,44 @@ export function interpolate(
     if (value == undefined) 
         return undefined;
 
-    let texte: any = "";
-    if (typeof value === "string")
-    {
-        texte = value;
-    } 
-    else if ("other" in value)
-    {
-        const countValue = params?.["count"];
-        const nbParametre = countValue !== undefined && countValue !== null ? Number(countValue) : 0;
-        const regleGrammaire = new Intl.PluralRules(lang).select(nbParametre);
-        texte = value[regleGrammaire] ?? value["other"];
-    } 
-    else
-    {
+    // Étape 1 : On parcourt l'objet JSON (Pluriel + Contexte) pour trouver le texte brut
+    const texteBrut = resolveNode(value, params, lang);
+    
+    if (!texteBrut) 
         return undefined;
-    }
 
-    if (!params) return texte;
+    // Si pas de paramètres, on renvoie directement le texte
+    if (!params || Object.keys(params).length === 0) 
+        return texteBrut;
 
-    // 1. AST CACHING : On vérifie si la phrase a déjà été découpée
-    let tokens = astCache.get(texte);
+    // Étape 2 : AST CACHING (Analyse de la chaîne)
+    let tokens = astCache.get(texteBrut);
     if (!tokens)
     {
-        // La regex split va diviser la phrase et ignorer la déclaration de type.
-        // Ex: "Bonjour {name:string}" devient ["Bonjour ", "name", ""]
-        // Les index pairs (0, 2, 4...) sont du texte, les index impairs (1, 3, 5...) sont des variables.
-        tokens = texte.split(/\{([a-zA-Z0-9_]+)(?::[^\}]+)?\}/g);
-        astCache.set(texte, tokens as string[]);
+        if (astCache.size >= MAX_CACHE_SIZE)
+            astCache.clear();
+
+        // Sépare la chaîne des variables (ex: "Bonjour {name:string}")
+        tokens = texteBrut.split(/\{([a-zA-Z0-9_]+)(?::[^\}]+)?\}/g);
+        astCache.set(texteBrut, tokens as string[]);
     }
 
-    // 2. RECONSTRUCTION RAPIDE (Concaténation sans Regex)
+    // Étape 3 : RECONSTRUCTION RAPIDE
     let result = "";
     for (let i = 0; i < (tokens as string[]).length; i++)
     {
-        // Texte statique
         if (i % 2 == 0)
+        {
             result += (tokens as string[])[i]; 
+        }
         else
         {
-            const key = (tokens as string[])[i]; // Nom de la variable
+            const key = (tokens as string[])[i]; 
             const val = params[key];
 
+            // Affiche {variable} si manquante
             if (val == undefined || val == null)
             {
-                // Si la variable est manquante, on affiche l'accolade sans le type
                 result += `{${key}}`;
             } 
             else if (val instanceof Date && !isNaN(val.getTime()))

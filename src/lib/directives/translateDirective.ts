@@ -37,19 +37,38 @@ export class TranslateDirective
 
     private readonly initialContentKey = this.elementRef.nativeElement.textContent?.trim();
 
+    // Stockage de l'état précédent
+    private lastKey?: string;
+
+    // Propriété pour stocker la version sérialisée des anciens paramètres
+    private lastParamsStringified?: string;
+
     constructor()
     {
         effect(() => 
         {
             const rawKey = (this.translate() || this.initialContentKey) as TranslationKey;
+            
+            // 1. On lit les dépendances (le signal est enregistré)
+            const params = this.translateParams();
+            const currentParamsStringified = params ? JSON.stringify(params) : undefined;
+            const fallback = this.translateFallback();
 
-            if (!rawKey)
+            if (!rawKey) 
                 return;
+
+            // éviter l'exécution inutile de l'API de DOM / Sanitation
+            if (this.lastKey === currentParamsStringified) 
+                return;
+
+            // Mise à jour de l'état
+            this.lastKey = rawKey;
+            this.lastParamsStringified = currentParamsStringified;
 
             const translatedText = this.translationServ.instant(
                 rawKey, 
-                this.translateParams() as ExtractParams<TranslationKey>, 
-                this.translateFallback()
+                params as ExtractParams<TranslationKey>, 
+                fallback
             );
 
             const safeHtml = this.sanitizer.sanitize(SecurityContext.HTML, translatedText) ?? '';

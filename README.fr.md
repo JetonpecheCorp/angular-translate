@@ -15,6 +15,7 @@ Conçue dès le départ pour l'architecture Angular moderne, elle offre une **in
   - [3. Directive Autonome (Standalone)](#3-directive-autonome-standalone)
   - [4. Directive Structurelle (*translateGroup)](#4-directive-structurelle-translategroup)
   - [5. Texte de secours local (Inline Fallback)](#5-texte-de-secours-local-inline-fallback)
+  - [6. Sécurité Mémoire & Prévention des Fuites (Memory Leaks)](#6-sécurité-mémoire--prévention-des-fuites-memory-leaks)
 - [Typage Strict & CLI (Autocomplétion)](#typage-strict--cli-autocomplétion)
 - [Linter i18n (Vérification des clés)](#linter-i18n-vérification-des-clés)
 - [Extracteur de clés (Code => JSON)](#extracteur-de-clés-code--json)
@@ -22,8 +23,12 @@ Conçue dès le départ pour l'architecture Angular moderne, elle offre une **in
 - [Lazy-Loading (Traductions par Scope)](#lazy-loading-traductions-par-scope)
 - [Fonctionnalités Avancées](#fonctionnalités-avancées)
   - [1. Pluralisation Native (Norme CLDR)](#1-pluralisation-native-norme-cldr)
-  - [2. Custom Loader (Chargement depuis une base de données / API)](#2-custom-loader-chargement-depuis-une-base-de-données--api)
-  - [3. Monitoring des clés manquantes (Sentry, Datadog)](#3-monitoring-des-clés-manquantes-sentry-datadog)
+  - [2. Contexte (Genre, Rôle) & Combinaisons](#2-contexte-genre-rôle--combinaisons)
+  - [3. Formatage Global par Langue](#3-formatage-global-par-langue)
+  - [4. Custom Loader (Chargement depuis une base de données / API)](#4-custom-loader-chargement-depuis-une-base-de-données--api)
+  - [5. Monitoring des clés manquantes (Sentry, Datadog)](#5-monitoring-des-clés-manquantes-sentry-datadog)
+  - [6. Micro-Frontends : Lazy-Loading Composant](#6-micro-frontends--lazy-loading-composant)
+  - [7. Traduction automatique des Titres de Page (SEO)](#7-traduction-automatique-des-titres-de-page-seo)
   - [Déclaration dans app.config.ts](#déclaration-dans-appconfigts)
 - [Sous le capot (Comment ça marche)](#sous-le-capot-comment-ça-marche)
 
@@ -60,7 +65,17 @@ export const appConfig: ApplicationConfig = {
       fallbackLang: ['en'], // Chaîne de fallback prise en charge !
       sources: ['/i18n/'], // Chemin vers vos fichiers JSON
       autoDetect: true,
-      persist: true
+      persist: true,
+      // (Optionnel) Configuration de formatage globale par langue
+      formatConfig: {
+        'fr': {
+          number: { style: 'currency', currency: 'EUR' },
+          date: { dateStyle: 'short' }
+        },
+        'en': {
+          number: { style: 'currency', currency: 'USD' }
+        }
+      }
     })
   ]
 };
@@ -119,8 +134,8 @@ import { TranslatePipe, TranslateDatePipe, TranslateNumberPipe } from '@jetonpec
     <!-- Formatage natif des dates -->
     <p>Date : {{ user.birthDate | translateDate:{ dateStyle: 'full' } }}</p>
 
-    <!-- Formatage natif des devises/nombres -->
-    <p>Prix : {{ product.price | translateNumber:{ style: 'currency', currency: 'EUR' } }}</p>
+    <!-- Formatage natif des devises/nombres (les options sont facultatives si configurées dans app.config.ts) -->
+    <p>Prix : {{ product.price | translateNumber }}</p>
   `
 })
 export class MyComponent {}
@@ -312,7 +327,48 @@ En Anglais, `1` est singulier (`"one"`), mais `0` est pluriel. L'API ciblera don
 La clé `"zero"` ne sera déclenchée automatiquement que pour les langues ayant une règle grammaticale stricte pour le zéro (comme l'arabe ou le letton).  
 Assurez-vous de toujours fournir au minimum la clé `"other"`, qui sert de valeur par défaut universelle.  
 
-### 2. Custom Loader (Chargement depuis une base de données / API)
+### 2. Contexte (Genre, Rôle) & Combinaisons
+En plus du pluriel (`count`), la bibliothèque gère la sélection conditionnelle via le mot-clé `context`. C'est très utile pour gérer le genre ou le statut d'un utilisateur.
+Mieux encore : vous pouvez imbriquer le contexte et le pluriel de manière infinie !
+
+(Note : Assurez-vous de toujours inclure une clé `"other"` à chaque niveau d'imbrication pour garantir le comportement de repli).
+
+```json
+{
+  "USER.ACTIVITY": {
+    "male": {
+      "one": "Il a publié 1 article",
+      "other": "Il a publié {count} articles"
+    },
+    "female": {
+      "one": "Elle a publié 1 article",
+      "other": "Elle a publié {count} articles"
+    },
+    "other": {
+      "other": "Iel a publié {count} articles"
+    }
+  }
+}
+```
+```html
+<!-- Le système résoudra d'abord le contexte "female", puis cherchera la règle de pluriel "other" (car count=3) -->
+<p>{{ 'USER.ACTIVITY' | translate:{ context: user.gender, count: 3 } }}</p>
+```
+
+### 3. Formatage Global par Langue
+Au lieu de répéter les options de formatage (comme la devise) dans tous vos templates HTML, vous pouvez définir une configuration globale par langue lors de l'initialisation. Les pipes utiliseront automatiquement ces options, avec une logique de cascade vers la langue par défaut (`defaultLang`) si aucune configuration spécifique n'existe.
+
+```ts
+provideTranslation({
+  defaultLang: 'fr',
+  formatConfig: {
+    'fr': { number: { style: 'currency', currency: 'EUR' } },
+    'en': { number: { style: 'currency', currency: 'USD' } }
+  }
+})
+```
+
+### 4. Custom Loader (Chargement depuis une base de données / API)
 Par défaut, la bibliothèque charge des fichiers JSON locaux via `HttpClient`. Vous pouvez surcharger ce comportement pour charger vos traductions depuis Supabase, Firebase, ou une API GraphQL en créant votre propre `TranslationLoader`.
 
 ```ts
@@ -329,7 +385,7 @@ export class MyGraphQLLoader implements TranslationLoader
 }
 ```
 
-### 3. Monitoring des clés manquantes (Sentry, Datadog)
+### 5. Monitoring des clés manquantes (Sentry, Datadog)
 Lorsqu'une traduction est introuvable, vous pouvez intercepter l'événement pour alerter votre équipe ou envoyer un log à Sentry.
 
 ```ts
@@ -344,6 +400,46 @@ export class MyMissingHandler implements MissingTranslationHandler
     return `[${event.key}]`; // Valeur affichée à l'écran
   }
 }
+```
+
+### 6. Micro-Frontends : Lazy-Loading Composant
+Si vous créez un gros composant autonome (ex: un widget météo) qui doit charger son propre fichier JSON de traduction au moment de son affichage, vous pouvez appeler `loadScope` directement dans son constructeur. Le cache interne garantit qu'aucune requête HTTP ne sera répétée si le composant est instancié plusieurs fois.
+
+```ts
+@Component({
+  selector: 'app-widget-meteo',
+  standalone: true,
+  template: `<h1>{{ 'meteo.TITLE' | translate }}</h1>`
+})
+export class WidgetMeteoComponent 
+{
+  constructor() 
+  {
+    // Charge automatiquement /i18n/meteo/fr.json
+    inject(TranslationService).loadScope('meteo', '/i18n/meteo/');
+  }
+}
+```
+
+### 7. Traduction automatique des Titres de Page (SEO)
+La bibliothèque fournit une stratégie de titre (`TranslateTitleStrategy`) prête à l'emploi. Elle intercepte la propriété `title` de vos routes Angular, la traduit, et met à jour l'onglet du navigateur automatiquement à chaque navigation **et à chaque changement de langue**.
+
+```ts
+import { TitleStrategy, provideRouter, Routes } from '@angular/router';
+import { TranslateTitleStrategy } from '@jetonpeche/angular-translate';
+
+const routes: Routes = [
+  // La clé 'PAGE.HOME_TITLE' sera traduite automatiquement !
+  { path: 'home', component: HomeComponent, title: 'PAGE.HOME_TITLE' } 
+];
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideRouter(routes),
+    // Surcharge la stratégie native d'Angular
+    { provide: TitleStrategy, useClass: TranslateTitleStrategy }
+  ]
+};
 ```
 
 ### Déclaration dans app.config.ts
@@ -411,6 +507,13 @@ Cette bibliothèque intègre nativement le `TransferState` d'Angular.
 1. Le serveur récupère le JSON via HTTP.   
 2. Le serveur sérialise le dictionnaire et l'intègre directement dans le HTML généré.   
 3. Lors de l'hydratation, le `TranslationService` du navigateur intercepte cet état intégré et remplit immédiatement son cache interne, contournant totalement le `HttpClient` pour le chargement initial.   
+
+### 6. Fichiers Gigantesques & Sécurité Mémoire
+Dans les applications d'entreprise volumineuses ou les SPA destinées à tourner 24h/24 sans rafraîchissement (bornes interactives, terminaux), la gestion de la mémoire et des temps de chargement est critique. `@jetonpeche/angular-translate` a été conçu pour garantir une empreinte RAM parfaitement maîtrisée :
+
+- **Fichiers de traduction massifs (Lazy-Loading)** : Pour les dictionnaires de plusieurs dizaines de milliers de clés, la bibliothèque intègre le chargement par `Scopes`. Au lieu de charger un fichier global monstrueux qui gèlerait le navigateur lors du parsing, les développeurs fragmentent leurs traductions en micro-fichiers JSON qui ne sont chargés en RAM qu'à l'ouverture des modules concernés.
+- **Cache `Intl` limité** : Les instances de formatage natif (Dates et Nombres) sont mises en cache par combinaison de langue et d'options. Dans une application réelle, cela représente à peine une dizaine d'entrées (quelques octets en mémoire).
+- **Plafond de verre sur l'AST** : Le cache d'interpolation (qui stocke les phrases paramétrées et découpées) possède une limite de sécurité stricte (LRU concept). S'il dépasse le seuil défini (1000 chaînes uniques), la bibliothèque purge automatiquement l'index pour libérer le Garbage Collector. Ce processus est totalement invisible pour l'utilisateur et empêche toute saturation de la mémoire sur le long terme.
 
 ## Licence
 MIT

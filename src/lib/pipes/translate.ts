@@ -1,6 +1,7 @@
-import { inject, Pipe, PipeTransform } from "@angular/core";
+import { ChangeDetectorRef, inject, Pipe, PipeTransform } from "@angular/core";
 import { ExtractParams, TranslationKey } from "../tokens/auto-complete-key";
 import { TraducteurCoreService } from "../services/TraducteurCoreService";
+import { takeUntilDestroyed, toObservable } from "@angular/core/rxjs-interop";
 
 /**
  * A standalone pipe for translating strings directly within Angular HTML templates.
@@ -19,13 +20,19 @@ import { TraducteurCoreService } from "../services/TraducteurCoreService";
  */
 @Pipe({
     name: "translate",
-    standalone: true,
-    // Réagit au changement de langue
-    pure: false
+    standalone: true
 })
 export class TranslatePipe implements PipeTransform
 {
     private translateServ = inject(TraducteurCoreService);
+    private cdr = inject(ChangeDetectorRef);
+
+    constructor() 
+    {
+        toObservable(this.translateServ.langueActuelle)
+            .pipe(takeUntilDestroyed())
+            .subscribe(() => this.cdr.markForCheck());
+    }
 
     transform<K extends TranslationKey>(key: K, params?: ExtractParams<K>, fallback?: TranslationKey | string): string 
     {
