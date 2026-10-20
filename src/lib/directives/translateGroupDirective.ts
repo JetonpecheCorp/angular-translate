@@ -1,6 +1,7 @@
-import { Directive, TemplateRef, ViewContainerRef, inject, OnInit } from '@angular/core';
+import { Directive, TemplateRef, ViewContainerRef, inject, OnInit, ChangeDetectorRef } from '@angular/core';
 import { TranslationKey, ExtractParams } from '../tokens/auto-complete-key';
 import { TraducteurCoreService } from '../services/TraducteurCoreService';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 
 /**
  * A structural guideline to avoid repeating the pipe `| translate`
@@ -21,6 +22,15 @@ export class TranslateGroupDirective implements OnInit
     private templateRef = inject(TemplateRef);
     private vcr = inject(ViewContainerRef);
     private translationService = inject(TraducteurCoreService);
+    private cdr = inject(ChangeDetectorRef);
+
+    constructor() 
+    {
+        // Force la mise à jour du bloc HTML quand la langue change
+        toObservable(this.translationService.langueActuelle)
+            .pipe(takeUntilDestroyed())
+            .subscribe(() => this.cdr.markForCheck());
+    }
 
     ngOnInit()
     {
