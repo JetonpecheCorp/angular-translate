@@ -259,26 +259,41 @@ npx angular-translate-extract -j public/i18n/fr.json -s src/ --add --value "NOT_
 ```
 
 ## Tests Unitaires
-Pour écrire des tests unitaires (Jest/Jasmine) sans déclencher de vraies requêtes HTTP, utilisez le fournisseur utilitaire `provideTranslationTesting`.
+Pour écrire des tests unitaires (Jest, Jasmine, Karma) sans déclencher de véritables requêtes HTTP, utilisez le fournisseur utilitaire `provideTranslationTesting`. 
+
+Il simule instantanément les services de la bibliothèque et **gère automatiquement l'interpolation de vos paramètres** pour faciliter vos assertions (les `expect`).
 
 ```ts
 import { TestBed } from '@angular/core/testing';
 import { provideTranslationTesting } from '@jetonpeche/angular-translate';
+import { MyComponent } from './my.component';
 
-describe('HeaderComponent', () => {
+describe('MyComponent', () => {
   beforeEach(() => {
     TestBed.configureTestingModule({
       providers: [
-        // Injecte un mock synchrone parfait
+        // Injecte un dictionnaire statique pour le test
         provideTranslationTesting({
             'HOME.TITLE': 'Titre de test',
-            'ACCOUNT.BALANCE': 'Solde: {amount}'
+            'ACCOUNT.BALANCE': 'Solde: {amount}' // L'interpolation est supportée !
         })
       ]
     });
   });
+
+  it('devrait afficher le solde avec le paramètre remplacé', () => {
+    const fixture = TestBed.createComponent(MyComponent);
+    fixture.componentInstance.amount = 150;
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    
+    // Le mock remplace {amount} par 150 automatiquement
+    expect(compiled.querySelector('.balance')?.textContent).toBe('Solde: 150');
+  });
 });
 ```
+>**Note interne** : `provideTranslationTesting` mocke à la fois le service public et le moteur interne de la bibliothèque. Ainsi, vos composants, directives et pipes liés à la traduction fonctionneront parfaitement sans lever d'erreurs d'injection.
 
 ## Lazy-Loading (Traductions par Scope)
 Il arrive souvent qu'une application ait besoin d'une approche hybride : charger les traductions principales très rapidement via des fichiers JSON locaux, mais charger les traductions d'un module spécifique (comme un panneau d'administration) depuis une API distante ou une base de données.
