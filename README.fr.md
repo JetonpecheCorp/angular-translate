@@ -288,11 +288,11 @@ Il arrive souvent qu'une application ait besoin d'une approche hybride : charger
 Dans cet exemple, au lieu de lire un fichier local, nous interrogeons une API REST. La propriété `source` n'est plus un chemin de dossier, mais l'URL de l'API.  
 Passez simplement votre classe personnalisée dans la propriété `loader` de la configuration du scope.
 ```ts
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, Service } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { TranslationLoader } from '@jetonpeche/angular-translate';
 
-@Injectable()
+@Service()
 export class AdminApiLoader implements TranslationLoader 
 {
   private http = inject(HttpClient);
