@@ -63,18 +63,19 @@ export class TraducteurCoreService
             return cachedData;
         }
 
-        const sources = this.TRANSLATION_CONFIG?.sources?.length ? 
+        if (this.TRANSLATION_CONFIG?.debug) 
+        {
+            console.groupCollapsed(`[Angular Translate] 🌐 Loading the language: ${lang}`);
+            console.time(`load-${lang}`);
+        }
+
+        const sources = this.TRANSLATION_CONFIG?.sources?.length ?
             this.TRANSLATION_CONFIG.sources
-            : 
+            :
             ['/i18n/'];
 
-        // NOUVEAU : On utilise le loader au lieu du http
         const results = await Promise.allSettled(
-            sources.map(source =>
-            {
-                const result = this.loader.getTranslation(lang, source);
-                return result instanceof Promise ? result : firstValueFrom(result);
-            })
+            sources.map(source => this.fetchWithRetry(lang, source, this.loader))
         );
 
         const dictionaries = results
@@ -83,6 +84,14 @@ export class TraducteurCoreService
 
         const merged = deepMerge(...dictionaries);
         this.cache.set(lang, merged);
+
+        if (this.TRANSLATION_CONFIG?.debug) 
+        {
+            console.log("Loaded sources:", sources.length);
+            console.log("Merged keys:", Object.keys(merged).length);
+            console.timeEnd(`load-${lang}`);
+            console.groupEnd();
+        }
 
         if (isPlatformServer(this.idPlateforme))
             this.transferState.set(stateKey, merged);
@@ -145,27 +154,27 @@ export class TraducteurCoreService
 
     async loadScope(scope: string, source: string, customLoader?: TranslationLoader): Promise<void>
     {
-        if (this.activeScopes.has(scope))
+        if (this.activeScopes.has(scope)) 
             return;
 
-        // Sauvegarde le scope avec son loader spécifique pour les futurs changements de langue
         this.activeScopes.set(scope, { source, loader: customLoader });
 
         const lang = this.langueActuelle();
 
         try
         {
-            const activeLoader = customLoader ?? this.loader;
-            const result = activeLoader.getTranslation(lang, source);
-            const dictionary = await (result instanceof Promise ? result : firstValueFrom(result));
+            if (this.TRANSLATION_CONFIG?.debug)
+                console.log(`[Angular Translate] 📦 Loading the "${scope}" scope for the language ${lang}`);
 
-            // Encapsulation sous la clé du scope (ex: { "admin": { "TITLE": "..." } })
+            const activeLoader = customLoader ?? this.loader;
+            const dictionary = await this.fetchWithRetry(lang, source, activeLoader);
+
             const scopedDictionary = { [scope]: dictionary };
             this.setTranslation(lang, scopedDictionary, true);
-        }
+        } 
         catch (e)
         {
-            console.warn(`[Translate] Impossible de charger le scope: ${scope}`);
+            console.error(`[Angular Translate] ❌ Unable to load scope: ${scope}`, e);
         }
     }
 
@@ -218,7 +227,13 @@ export class TraducteurCoreService
             });
         }
 
-        const texteTraduit = interpolate(texteBrut, params, this.langueActuelle());
+        const texteTraduit = interpolate(
+            texteBrut, 
+            params, 
+            this.langueActuelle(), 
+            this.TRANSLATION_CONFIG?.interpolation
+        );
+
         return texteTraduit ?? key;
     }
 
@@ -235,6 +250,33 @@ export class TraducteurCoreService
 
         if (this.langueActuelle() == lang)
             this.traduction.set(updated);
+    }
+
+    private async fetchWithRetry(lang: string, source: string, activeLoader: TranslationLoader): Promise<TranslationDictionary>
+    {
+        const maxRetries = this.TRANSLATION_CONFIG?.retryAttempts ?? 0;
+        let attempt = 0;
+
+        while (attempt <= maxRetries)
+        {
+            try
+            {
+                const result = activeLoader.getTranslation(lang, source);
+                return await (result instanceof Promise ? result : firstValueFrom(result));
+            }
+            catch (error)
+            {
+                attempt++;
+                if (this.TRANSLATION_CONFIG?.debug)
+                    console.warn(`[Angular Translate] Failed to load ${lang} from ${source}. Attempt ${attempt}/${maxRetries}...`);
+
+                if (attempt > maxRetries)
+                    throw error;
+
+                await new Promise(res => setTimeout(res, 1000));
+            }
+        }
+        throw new Error("Unreachable");
     }
 
     private updateDomAttributes(lang: string, direction: 'ltr' | 'rtl'): void

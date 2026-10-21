@@ -64,6 +64,16 @@ export const appConfig: ApplicationConfig = {
       defaultLang: 'fr',
       fallbackLang: ['en'], // Chaîne de fallback prise en charge !
       sources: ['/i18n/'], // Chemin vers vos fichiers JSON
+      version: 'v=1.0.4', // Invalide le cache navigateur lors d'une nouvelle release
+      retryAttempts: 2,  // Utile pour les connexions mobiles instables
+      
+      // Modifie les marqueurs par défaut {variable}
+      interpolation: {
+        prefix: '{{',
+        suffix: '}}'
+      },
+      
+      debug: true, // Affiche les temps de chargement et les logs détaillés en console
       autoDetect: true,
       persist: true,
       // (Optionnel) Configuration de formatage globale par langue
@@ -80,6 +90,16 @@ export const appConfig: ApplicationConfig = {
   ]
 };
 ```
+
+### Détail des options avancées
+
+- `version` **(Cache Busting)** : Les navigateurs mettent souvent les fichiers `.json` en cache. Renseigner cette propriété ajoutera ce paramètre à la fin de vos requêtes HTTP (ex: `/i18n/fr.json?v=1.0.4`), forçant le navigateur à télécharger vos nouvelles traductions après une mise à jour.
+
+- `retryAttempts`: En cas d'échec de la requête HTTP (perte de réseau 4G, timeout), la bibliothèque tentera de recharger le fichier de langue le nombre de fois indiqué avant de basculer vers les langues de secours.
+
+- `interpolation`: Par défaut, la bibliothèque remplace les variables avec la syntaxe `{nom}`. Si vous migrez depuis une autre librairie, vous pouvez configurer vos propres marqueurs (comme `{{nom}}` ou `__nom__`).
+
+- `debug`: Active un suivi détaillé dans la console du navigateur. Idéal en développement pour auditer les temps de résolution des fichiers JSON, vérifier le bon chargement des Scopes, ou repérer les clés écrasées.
 
 ## Utilisation
 

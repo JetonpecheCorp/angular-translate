@@ -75,6 +75,40 @@ export interface TranslationConfig
      * }
      */
     formatConfig?: Record<string, TranslationFormatOptions>;
+
+    /**
+     * A custom query string appended to the end of the JSON request URLs to invalidate the browser cache (Cache Busting).
+     * You have full control over the parameter name and value.
+     * 
+     * @example 'v=1.0.4' or 'hash=a1b2c3d4'
+     */
+    version?: string;
+
+    /**
+     * The number of attempts to retry loading a JSON file if the HTTP request fails (e.g., due to network loss).
+     * 
+     * @default 0
+     */
+    retryAttempts?: number;
+
+    /**
+     * Customization of the markers used for variable interpolation.
+     * Useful if migrating from another library that uses a different syntax (like `{{var}}` or `:var`).
+     * 
+     * @default prefix: '{', suffix: '}'
+     */
+    interpolation?: {
+        prefix: string;
+        suffix: string;
+    };
+
+    /**
+     * Enables detailed console logs (loading status, errors, execution times, cache merges).
+     * Highly recommended during development and debugging.
+     * 
+     * @default false
+     */
+    debug?: boolean;
 }
 
 export interface TranslationFormatOptions 

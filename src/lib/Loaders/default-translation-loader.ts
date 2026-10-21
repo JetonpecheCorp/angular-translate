@@ -2,12 +2,13 @@ import { inject, Service } from "@angular/core";
 import { HttpClient } from "@angular/common/http";
 import { Observable } from "rxjs";
 import { TranslationLoader } from "../tokens/translation-loader";
-import { TranslationDictionary } from "../tokens/translation";
+import { TRANSLATION_CONFIG, TranslationDictionary } from "../tokens/translation";
 
 @Service()
 export class DefaultTranslationLoader implements TranslationLoader
 {
     private http = inject(HttpClient);
+    private config = inject(TRANSLATION_CONFIG, { optional: true });
 
     /**
      * @param lang The requested language code (e.g., 'en').
@@ -15,7 +16,16 @@ export class DefaultTranslationLoader implements TranslationLoader
      */
     getTranslation(lang: string, source: string): Observable<TranslationDictionary>
     {
-        // Construit l'URL exacte par défaut : '/i18n/en.json'
-        return this.http.get<TranslationDictionary>(`${source}${lang}.json`);
+        let url = `${source}${lang}.json`;
+        
+        if (this.config?.version) 
+        {
+            const separator = url.includes('?') ? '&' : '?';
+            // Supprime un éventuel '?' ou '&' mis au début par le développeur
+            const cleanVersion = this.config.version.replace(/^[?&]/, '');
+            url += `${separator}${cleanVersion}`;
+        }
+
+        return this.http.get<TranslationDictionary>(url);
     }
 }

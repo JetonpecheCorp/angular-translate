@@ -3,6 +3,11 @@ import { TranslationValue } from "../tokens/translation";
 const astCache = new Map<string, string[]>();
 const MAX_CACHE_SIZE = 1000;
 
+function escapeRegExp(string: string): string 
+{
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 /**
  * Fonction récursive pour descendre dans un arbre JSON de traduction.
  * Elle permet de cumuler le Contexte (genre, rôle) ET le Pluriel.
@@ -10,10 +15,10 @@ const MAX_CACHE_SIZE = 1000;
 function resolveNode(node: any, params: Record<string, any> | undefined, lang: string): string | undefined
 {
     // Condition de sortie : on a trouvé la chaîne finale
-    if (typeof node === 'string') 
+    if (typeof node === 'string')
         return node;
 
-    if (typeof node !== 'object' || node === null) 
+    if (typeof node !== 'object' || node === null)
         return undefined;
 
     // 1. Résolution par CONTEXTE (si le paramètre 'context' est passé)
@@ -29,7 +34,7 @@ function resolveNode(node: any, params: Record<string, any> | undefined, lang: s
     {
         const countValue = Number(params['count']);
         const rule = new Intl.PluralRules(lang).select(countValue);
-        
+
         if (node[rule] !== undefined)
         {
             const nextParams = { ...params };
@@ -50,51 +55,51 @@ function resolveNode(node: any, params: Record<string, any> | undefined, lang: s
 export function interpolate(
     value: TranslationValue | undefined,
     params: Record<string, any> | undefined,
-    lang: string
+    lang: string,
+    config?: { prefix: string, suffix: string }
 ): string | undefined
 {
-    if (value == undefined) 
-        return undefined;
+    if (value == undefined) return undefined;
 
-    // Étape 1 : On parcourt l'objet JSON (Pluriel + Contexte) pour trouver le texte brut
     const texteBrut = resolveNode(value, params, lang);
-    
-    if (!texteBrut) 
+    if (!texteBrut)
         return undefined;
 
-    // Si pas de paramètres, on renvoie directement le texte
-    if (!params || Object.keys(params).length === 0) 
+    if (!params || Object.keys(params).length === 0)
         return texteBrut;
 
-    // Étape 2 : AST CACHING (Analyse de la chaîne)
+    const prefix = config?.prefix || '{';
+    const suffix = config?.suffix || '}';
+
     let tokens = astCache.get(texteBrut);
     if (!tokens)
     {
-        if (astCache.size >= MAX_CACHE_SIZE)
-            astCache.clear();
+        if (astCache.size >= MAX_CACHE_SIZE) astCache.clear();
 
-        // Sépare la chaîne des variables (ex: "Bonjour {name:string}")
-        tokens = texteBrut.split(/\{([a-zA-Z0-9_]+)(?::[^\}]+)?\}/g);
+        // Création de la regex dynamique (ex: /\{([a-zA-Z0-9_]+)(?::[^\}]+)?\}/g)
+        const p = escapeRegExp(prefix);
+        const s = escapeRegExp(suffix);
+        const regex = new RegExp(`${p}([a-zA-Z0-9_]+)(?::[^${s}]+)?${s}`, 'g');
+
+        tokens = texteBrut.split(regex);
         astCache.set(texteBrut, tokens as string[]);
     }
 
-    // Étape 3 : RECONSTRUCTION RAPIDE
     let result = "";
     for (let i = 0; i < (tokens as string[]).length; i++)
     {
         if (i % 2 == 0)
         {
-            result += (tokens as string[])[i]; 
-        }
+            result += (tokens as string[])[i];
+        } 
         else
         {
-            const key = (tokens as string[])[i]; 
+            const key = (tokens as string[])[i];
             const val = params[key];
 
-            // Affiche {variable} si manquante
             if (val == undefined || val == null)
             {
-                result += `{${key}}`;
+                result += `${prefix}${key}${suffix}`;
             } 
             else if (val instanceof Date && !isNaN(val.getTime()))
             {
