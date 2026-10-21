@@ -16,6 +16,7 @@ import { DefaultTranslationLoader } from "../Loaders/default-translation-loader"
 export class TraducteurCoreService
 {
     langueActuelle = signal<string>("");
+    estEnChargement = signal<boolean>(false);
 
     // permet de savoir si on doit changer le sens d'ecriture sur certaine langue
     sensEcriture = computed<'ltr' | 'rtl'>(() => ['ar', 'he', 'fa', 'ur'].includes(this.langueActuelle()) ? 'rtl' : 'ltr');
@@ -128,28 +129,36 @@ export class TraducteurCoreService
 
     async use(lang: string): Promise<void>
     {
-        let dictFinal = await this.loadLangue(lang);
-
-        // Rechargement des scopes actifs pour la nouvelle langue
-        for (const [scope, config] of this.activeScopes.entries())
+        this.estEnChargement.set(true);
+        try
         {
-            try
+            let dictFinal = await this.loadLangue(lang);
+
+            // Rechargement des scopes actifs pour la nouvelle langue
+            for (const [scope, config] of this.activeScopes.entries())
             {
-                const activeLoader = config.loader ?? this.loader;
-                const result = activeLoader.getTranslation(lang, config.source);
-                const scopeDict = await (result instanceof Promise ? result : firstValueFrom(result));
-                dictFinal = deepMerge(dictFinal, { [scope]: scopeDict });
+                try
+                {
+                    const activeLoader = config.loader ?? this.loader;
+                    const result = activeLoader.getTranslation(lang, config.source);
+                    const scopeDict = await (result instanceof Promise ? result : firstValueFrom(result));
+                    dictFinal = deepMerge(dictFinal, { [scope]: scopeDict });
+                }
+                catch (e) { }
             }
-            catch (e) { }
+
+            this.traduction.set(dictFinal);
+            this.cache.set(lang, dictFinal);
+            this.langueActuelle.set(lang);
+            this.updateDomAttributes(lang, this.sensEcriture());
+
+            if (this.TRANSLATION_CONFIG?.persist ?? true)
+                this.translationStorageServ.set("app_lang", lang);    
+        } 
+        finally 
+        {
+            this.estEnChargement.set(false);
         }
-
-        this.traduction.set(dictFinal);
-        this.cache.set(lang, dictFinal);
-        this.langueActuelle.set(lang);
-        this.updateDomAttributes(lang, this.sensEcriture());
-
-        if (this.TRANSLATION_CONFIG?.persist ?? true)
-            this.translationStorageServ.set("app_lang", lang);
     }
 
     async loadScope(scope: string, source: string, customLoader?: TranslationLoader): Promise<void>

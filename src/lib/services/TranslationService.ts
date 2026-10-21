@@ -20,6 +20,12 @@ export class TranslationService
     readonly dir = this.tradCoreServ.sensEcriture;
 
     /**
+     * A reactive signal indicating if a language file is currently being downloaded.
+     * Ideal for displaying a loading spinner or disabling the language selector.
+     */
+    readonly isTranslating = this.tradCoreServ.estEnChargement.asReadonly();
+
+    /**
      * Changes the active language of the application.
      * Automatically fetches the required translation files if they are not already cached.
      * 

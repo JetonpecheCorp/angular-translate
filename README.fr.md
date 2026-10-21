@@ -15,12 +15,12 @@ Conçue dès le départ pour l'architecture Angular moderne, elle offre une **in
   - [3. Directive Autonome (Standalone)](#3-directive-autonome-standalone)
   - [4. Directive Structurelle (*translateGroup)](#4-directive-structurelle-translategroup)
   - [5. Texte de secours local (Inline Fallback)](#5-texte-de-secours-local-inline-fallback)
-  - [6. Sécurité Mémoire & Prévention des Fuites (Memory Leaks)](#6-sécurité-mémoire--prévention-des-fuites-memory-leaks)
 - [Typage Strict & CLI (Autocomplétion)](#typage-strict--cli-autocomplétion)
 - [Linter i18n (Vérification des clés)](#linter-i18n-vérification-des-clés)
 - [Extracteur de clés (Code => JSON)](#extracteur-de-clés-code--json)
 - [Tests Unitaires](#tests-unitaires)
 - [Lazy-Loading (Traductions par Scope)](#lazy-loading-traductions-par-scope)
+- [Indicateur de chargement réseau](#indicateur-de-chargement-réseau)
 - [Fonctionnalités Avancées](#fonctionnalités-avancées)
   - [1. Pluralisation Native (Norme CLDR)](#1-pluralisation-native-norme-cldr)
   - [2. Contexte (Genre, Rôle) & Combinaisons](#2-contexte-genre-rôle--combinaisons)
@@ -360,6 +360,38 @@ export const routes: Routes = [
 ```
 
 >**Note** : La flexibilité est totale. Le paramètre `source` transmet simplement une chaîne de caractères à votre `TranslationLoader`. Vous êtes libre d'y mettre un chemin local, une URL, ou même un identifiant de base de données (ex: `supabase-table-admin`).
+
+## Indicateur de chargement réseau
+
+Lorsque vos utilisateurs passent d'une langue à une autre, la bibliothèque télécharge automatiquement les nouveaux fichiers JSON.
+Vous pouvez écouter le signal `isTranslating` pour afficher un spinner ou désactiver votre menu déroulant pendant ce processus.
+
+```ts
+import { Component, inject } from '@angular/core';
+import { TranslationService } from '@jetonpeche/angular-translate';
+
+@Component({
+  selector: 'app-lang-selector',
+  template: `
+    @if(translate.isTranslating())
+    {
+      <div class="loader">
+        Chargement de la langue...
+      </div>
+    }
+
+    <button 
+        [disabled]="translate.isTranslating()" 
+        (click)="translate.use('es')">
+        Passer en Espagnol
+    </button>
+  `
+})
+export class LangSelectorComponent 
+{
+  translate = inject(TranslationService);
+}
+```
 
 ## Fonctionnalités Avancées
 
